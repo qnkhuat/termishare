@@ -17,32 +17,30 @@ import (
 	"time"
 )
 
-type PtyMaster struct {
+type Pty struct {
 	cmd               *exec.Cmd
 	f                 *os.File
 	terminalInitState *term.State
 }
 
-type onWindowChangedCB func(*ptyDevice.Winsize)
-
 // *** Getter/Setters ****
-func (pty *PtyMaster) F() *os.File {
+func (pty *Pty) F() *os.File {
 	return pty.f
 }
 
-func New() *PtyMaster {
-	return &PtyMaster{}
+func New() *Pty {
+	return &Pty{}
 }
 
-func (pty *PtyMaster) Write(b []byte) (int, error) {
+func (pty *Pty) Write(b []byte) (int, error) {
 	return pty.f.Write(b)
 }
 
-func (pty *PtyMaster) Read(b []byte) (int, error) {
+func (pty *Pty) Read(b []byte) (int, error) {
 	return pty.f.Read(b)
 }
 
-func (pty *PtyMaster) StartShell(envVars []string) error {
+func (pty *Pty) StartShell(envVars []string) error {
 	shell := os.Getenv("SHELL")
 	if shell == "" {
 		shell = "bash"
@@ -65,7 +63,7 @@ func (pty *PtyMaster) StartShell(envVars []string) error {
 	return nil
 }
 
-func (pty *PtyMaster) StartCommand() error {
+func (pty *Pty) StartCommand() error {
 	f, err := ptyDevice.Start(pty.cmd)
 	if err != nil {
 		return err
@@ -74,7 +72,7 @@ func (pty *PtyMaster) StartCommand() error {
 	return nil
 }
 
-func (pty *PtyMaster) Stop() error {
+func (pty *Pty) Stop() error {
 	signal.Ignore(syscall.SIGWINCH)
 
 	err := pty.cmd.Process.Signal(syscall.SIGTERM)
@@ -86,11 +84,11 @@ func (pty *PtyMaster) Stop() error {
 	return err
 }
 
-func (pty *PtyMaster) Restore() {
+func (pty *Pty) Restore() {
 	term.Restore(0, pty.terminalInitState)
 }
 
-func (pty *PtyMaster) Refresh() {
+func (pty *Pty) Refresh() {
 	// TODO: Find a better way to refresh instead of resizing
 	// We wanna force the app to re-draw itself, but there doesn't seem to be a way to do that
 	// so we fake it by resizing the window quickly, making it smaller and then back big
@@ -114,11 +112,11 @@ func (pty *PtyMaster) Refresh() {
 	}()
 }
 
-func (pty *PtyMaster) Wait() error {
+func (pty *Pty) Wait() error {
 	return pty.cmd.Wait()
 }
 
-func (pty *PtyMaster) MakeRaw() error {
+func (pty *Pty) MakeRaw() error {
 	// Save the initial state of the terminal, before making it RAW. Note that this terminal is the
 	// terminal under which the tty-share command has been started, and it's identified via the
 	// stdin file descriptor (0 in this case)
@@ -131,9 +129,11 @@ func (pty *PtyMaster) MakeRaw() error {
 	return err
 }
 
-func (pty *PtyMaster) SetWinsize(ws *ptyDevice.Winsize) {
+func (pty *Pty) SetWinsize(ws *ptyDevice.Winsize) {
 	ptyDevice.Setsize(pty.f, ws)
 }
+
+type onWindowChangedCB func(*ptyDevice.Winsize)
 
 func onWindowChanges(wcCB onWindowChangedCB) {
 	wcChan := make(chan os.Signal, 1)
@@ -161,12 +161,12 @@ func onWindowChanges(wcCB onWindowChangedCB) {
 	}
 }
 
-func (pty *PtyMaster) SetWinChangeCB(winChangedCB onWindowChangedCB) {
+func (pty *Pty) SetWinChangeCB(winChangedCB onWindowChangedCB) {
 	// Start listening for window changes
 	go onWindowChanges(func(ws *ptyDevice.Winsize) {
 		pty.SetWinsize(ws)
 
-		// Notify the PtyMaster user of the window changes, to be sent to the remote side
+		// Notify the Pty user of the window changes, to be sent to the remote side
 		winChangedCB(ws)
 	})
 }

@@ -59,12 +59,14 @@ func handleHealth(w http.ResponseWriter, r *http.Request) {
 func (sv *Server) WShandler(w http.ResponseWriter, r *http.Request) {
 	conn, err := httpUpgrader.Upgrade(w, r, nil)
 	if err != nil {
-		log.Printf("Failed to read message: %s", err)
+		log.Printf("Failed to upgrade connection : %s", err)
 		return
 	}
 	sv.AddConn(conn)
 
-	util.Chk(err, "Failed to upgrade ")
+	log.Printf("New connection")
+
+	conn.WriteJSON(message.Wrapper{Type: "ngoc"})
 
 	for {
 		msg := message.Wrapper{}
@@ -73,8 +75,9 @@ func (sv *Server) WShandler(w http.ResponseWriter, r *http.Request) {
 			log.Printf("Failed to read message: %s", err)
 			continue
 		}
+		log.Printf("Got a message: %v", msg)
 
-		// Broadcast the message to everyone
+		//// Broadcast the message to everyone
 		go func() {
 			for _, c := range sv.conns {
 				if c != conn {
@@ -92,8 +95,8 @@ func (sv *Server) AddConn(conn *websocket.Conn) {
 }
 
 func (sv *Server) Start() {
-	log.Printf("Serving at :%s", sv.addr)
-	fmt.Printf("Serving at :%s\n", sv.addr)
+	log.Printf("Serving at %s", sv.addr)
+	fmt.Printf("Serving at %s\n", sv.addr)
 
 	router := mux.NewRouter()
 	router.Use(CORS)
