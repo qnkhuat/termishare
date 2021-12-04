@@ -32,7 +32,7 @@ pc.onicecandidate = (e) => {
   if (e.candidate) {
     conn.send(JSON.stringify({
       Type: "Kiss",
-      Data: e.candidate.toJSON()}))
+      Data: JSON.stringify(e.candidate.toJSON())}))
   }
 }
 
@@ -49,7 +49,7 @@ const clickToSend = () => {
   // send offer
   const offer = pc.createOffer();
   pc.setLocalDescription(offer);
-  conn.send(JSON.stringify({Type: "WillYouMarryMe", Data: offer}))
+  conn.send(JSON.stringify({Type: "WillYouMarryMe", Data: JSON.stringify(offer)}))
 
 }
 pc.ondatachannel = e => {
