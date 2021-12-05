@@ -6,6 +6,7 @@ import (
 	"github.com/gorilla/websocket"
 	"github.com/qnkhuat/termishare/internal/cfg"
 	"github.com/qnkhuat/termishare/internal/util"
+	"github.com/qnkhuat/termishare/pkg/logging"
 	"github.com/qnkhuat/termishare/pkg/message"
 	"log"
 	"net/http"
@@ -52,7 +53,7 @@ func New(addr string) *Server {
 }
 
 func handleHealth(w http.ResponseWriter, r *http.Request) {
-	log.Printf("health check")
+	log.Printf("Health check")
 	fmt.Fprintf(w, "I'm fine: %s\n", time.Now().String())
 }
 
@@ -64,27 +65,25 @@ func (sv *Server) WShandler(w http.ResponseWriter, r *http.Request) {
 	}
 	sv.AddConn(conn)
 
-	log.Printf("New connection")
-
-	conn.WriteJSON(message.Wrapper{Type: "ngoc"})
+	log.Printf("New connection - %d", len(sv.conns))
 
 	for {
 		msg := message.Wrapper{}
 		err := conn.ReadJSON(&msg)
 		if err != nil {
-			log.Printf("Failed to read message: %s", err)
-			continue
+			// TODO: need cleaner way to close it
+			log.Printf("Failed to read message: %s. Closing", err)
+			conn.Close()
+			return
 		}
-		log.Printf("Got a message: %v", msg)
+		//log.Printf("Got a message: %v", msg)
 
-		//// Broadcast the message to everyone
-		go func() {
-			for _, c := range sv.conns {
-				if c != conn {
-					c.WriteJSON(msg)
-				}
+		// Broadcast the message to everyone
+		for _, c := range sv.conns {
+			if c != conn {
+				c.WriteJSON(msg)
 			}
-		}()
+		}
 	}
 }
 
@@ -110,6 +109,7 @@ func (sv *Server) Start() {
 }
 
 func main() {
+	logging.Config(".log", "SERVER: ")
 	s := New("localhost:3000")
 	s.Start()
 }

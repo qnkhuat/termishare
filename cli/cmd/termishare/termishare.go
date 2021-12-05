@@ -15,7 +15,7 @@ import (
 )
 
 func main() {
-	logging.Config(".log", "TERMISHARE")
+	logging.Config(".log", "TERMISHARE: ")
 	tty := pty.New()
 	tty.StartShell([]string{})
 	tty.MakeRaw()
@@ -40,13 +40,13 @@ func main() {
 
 	// blocking
 	tty.Wait()
+	wsConn.Close()
 	stop(tty)
 }
 
 func stop(tty *pty.Pty) {
 	tty.Stop()
 	tty.Restore()
-
 }
 
 func connect(wsConn *websocket.Conn) {
@@ -120,8 +120,11 @@ func connect(wsConn *websocket.Conn) {
 			err := wsConn.ReadJSON(&msg)
 			util.Chk(err, "Failed to read message from websocket")
 
+			log.Printf("Got a message: %v", msg)
+
 			switch msgType := msg.Type; msgType {
 			case message.TRTCWillYouMarryMe:
+				log.Printf("Offer data: %s", msg.Data)
 				offer := webrtc.SessionDescription{}
 				if err := json.Unmarshal([]byte(msg.Data), &offer); err != nil {
 					log.Println(err)

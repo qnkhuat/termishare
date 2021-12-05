@@ -18,11 +18,11 @@ const handleMessage = (ev) => {
       break;
 
     case "Yes":
-      pc.setRemoteDescription(msg.Data);
+      pc.setRemoteDescription(JSON.parse(msg.Data));
       break;
 
     case "Kiss":
-      const candidate = RTCIceCandidate(msg.Data);
+      const candidate = new RTCIceCandidate(JSON.parse(msg.Data));
       pc.addIceCandidate(candidate);
       break;
   }
@@ -42,16 +42,19 @@ conn.onopen = () => {
   console.log("Websocket connected!");
 }
 
-
-const clickToSend = () => {
-  console.log("Sending");
+const clickToSend = async () => {
+  // get media tracks
+  const stream = await navigator.mediaDevices.getUserMedia({audio:true});
+  const tracks = stream.getTracks()
+  tracks.forEach((track) => pc.addTrack(track));
 
   // send offer
-  const offer = pc.createOffer();
+  const offer = await pc.createOffer();
   pc.setLocalDescription(offer);
-  conn.send(JSON.stringify({Type: "WillYouMarryMe", Data: JSON.stringify(offer)}))
-
+  const msg = JSON.stringify({Type: "WillYouMarryMe", Data: JSON.stringify(offer)})
+  conn.send(msg);
 }
+
 pc.ondatachannel = e => {
   let dc = e.channel
   log('New DataChannel ' + dc.label)
