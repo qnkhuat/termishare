@@ -8,6 +8,8 @@ const pc = new RTCPeerConnection({
   ]
 })
 
+let sendChannel;
+
 const handleMessage = (ev) => {
   const msg = JSON.parse(ev.data);
   console.log("Received a message:", msg);
@@ -43,6 +45,12 @@ conn.onopen = () => {
 }
 
 const clickToSend = async () => {
+  sendChannel = pc.createDataChannel("chat");
+  sendChannel.onopen = () => {
+    const readyState = sendChannel.readyState;
+    console.log("Send channel state is: ", readyState);
+  }
+
   // get media tracks
   const stream = await navigator.mediaDevices.getUserMedia({audio:true});
   const tracks = stream.getTracks()
@@ -53,6 +61,11 @@ const clickToSend = async () => {
   pc.setLocalDescription(offer);
   const msg = JSON.stringify({Type: "WillYouMarryMe", Data: JSON.stringify(offer)})
   conn.send(msg);
+}
+
+
+const clickToChat = async () => {
+  sendChannel.send("ALOOOOOOOOO");
 }
 
 pc.ondatachannel = e => {
