@@ -7,7 +7,6 @@
   [org.clojure/core.match "1.0.0"]
   [org.clojure/core.async "1.3.618"]
   [lambdaisland/uri "1.11.86"]
-  [hashp "0.2.1"]
   [cider/cider-nrepl "0.24.0"]]
 
  :dev-http {8000 "public"}
@@ -17,5 +16,4 @@
    :modules          {:main {:init-fn termishare.main/init}}
    :closure-defines  {termishare.env/API_URL #shadow/env ["API_URL" :default "http://localhost:3000"]}
    :compiler-options {:infer-externs      :auto
-                      :output-feature-set :es5}
-   :devtools         {:preloads [hashp.core]}}}}
+                      :output-feature-set :es5}}}}
