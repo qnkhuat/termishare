@@ -1,0 +1,36 @@
+{
+  "name": "Termishare",
+  "version": "0.0.1",
+  "private": true,
+  "scripts": {
+    "shadow:watch": "shadow-cljs watch app",
+    "shadow:release": "shadow-cljs release app",
+    "postcss:build": "TAILWIND_MODE=build postcss src/termishare/tailwind.css -o ./public/css/main.css --verbose",
+    "postcss:watch": "TAILWIND_MODE=watch postcss src/termishare/tailwind.css -o ./public/css/main.css --verbose -w",
+    "postcss:release": "NODE_ENV=production postcss src/termishare/tailwind.css -o ./public/css/main.css --verbose",
+    "dev": "run-p -l *:watch",
+    "release": "run-s *:release"
+  },
+  "devDependencies": {
+    "npm-run-all": "^4.1.5",
+    "postcss": "^8.3.5",
+    "postcss-cli": "^8.3.1",
+    "shadow-cljs": "^2.15.12",
+    "tailwindcss": "^2.2.17"
+  },
+  "dependencies": {
+    "@emotion/react": "^11.5.0",
+    "@emotion/styled": "^11.3.0",
+    "@mui/material": "^5.0.4",
+    "autoprefixer": "^10.4.0",
+    "cssnano": "^5.0.8",
+    "fabric": "^4.6.0",
+    "postcss-cssnext": "^3.1.1",
+    "postcss-import": "^14.0.2",
+    "postcss-loader": "^6.2.0",
+    "react": "^17.0.2",
+    "react-dom": "^17.0.2",
+    "run-s": "^0.0.0",
+    "sugarss": "^4.0.1"
+  }
+}

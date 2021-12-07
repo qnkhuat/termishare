@@ -1,14 +1,28 @@
+# linting
+.clj-kondo
+.lsp
+
+# lein
+/target
+/classes
+/checkouts
+profiles.clj
 pom.xml
 pom.xml.asc
 *.jar
 *.class
-/lib/
-/classes/
-/target/
-/checkouts/
-.lein-deps-sum
-.lein-repl-history
-.lein-plugins/
-.lein-failures
-.nrepl-port
-.cpcache/
+/.lein-*
+/.nrepl-port
+/.prepl-port
+.hgignore
+.hg/
+.cpcache
+
+
+# shadow-js
+node_modules/
+public/js
+public/css
+/src/gen
+.shadow-cljs/
+
