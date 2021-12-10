@@ -13,9 +13,14 @@ type Termishare struct {
 	wsConn *websocket.Conn
 
 	// The main connection to exchange data
-	peerConn *webrtc.PeerConnection
+	peerConns []*webrtc.PeerConnection
 }
 
-func New() {
+func New() *Termishare {
+
+	return &Termishare{}
+}
+
+func (ts *Termishare) ConnectRoom() {
 
 }

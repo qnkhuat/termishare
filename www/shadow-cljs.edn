@@ -16,4 +16,4 @@
    :modules          {:main {:init-fn termishare.main/init}}
    :closure-defines  {termishare.env/API_URL #shadow/env ["API_URL" :default "http://localhost:3000"]}
    :compiler-options {:infer-externs      :auto
-                      :output-feature-set :es5}}}}
+                      :output-feature-set :es6}}}}
