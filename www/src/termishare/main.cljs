@@ -91,9 +91,9 @@
 
 (defn peer-connect
   []
-  (let [conn    (js/RTCPeerConnection. ice-candidate-config)
+  (let [conn               (js/RTCPeerConnection. ice-candidate-config)
         termishare-channel (.createDataChannel conn "termishare")
-        config-channel (.createDataChannel conn "config")]
+        config-channel     (.createDataChannel conn "config")]
     (set! (.-onconnectionstatechange conn) (fn [e] (js/console.log "Peer connection state change: " (clj->js e))))
     (set! (.-onicecandidate conn) rtc-onicecandidate)
     (set! (.-ondatachannel conn) rtc-ondatachannel)
@@ -113,20 +113,15 @@
 
 (defn send-offer
   []
-  (-> js/navigator
-      .-mediaDevices
-      (.getUserMedia #js {:video true :audio false})
-      (.then (fn [stream]
-               (add-tracks stream)))
-      (.then (fn []
-               (-> (:peer-conn @state)
-                   .createOffer
-                   (.then (fn [offer]
-                            (.setLocalDescription (:peer-conn @state) offer)
-                            (send-when-connected (:ws-conn @state) {:Type :WillYouMarryMe
-                                                                    :Data (js/JSON.stringify offer)})))
-                   (.catch (fn [e]
-                             (js/console.log "Failed to send offer " e))))))))
+  (-> (:peer-conn @state)
+      .createOffer
+      (.then (fn [offer]
+               (.setLocalDescription (:peer-conn @state) offer)
+               (send-when-connected (:ws-conn @state) {:Type :WillYouMarryMe
+                                                       :Data (js/JSON.stringify offer)})))
+      (.catch (fn [e]
+                (js/console.log "Failed to send offer " e)))))
+
 
 ;;; ------------------------------ Component ------------------------------
 
@@ -144,12 +139,10 @@
         (.open term (js/document.getElementById "termishare"))
         (swap! state assoc :term term)))
 
-
     :reagent-render
     (fn []
       [:<>
        [:div {:id "termishare"}]
-       [:h1 {:class "font-bold text-blue-400"} "Hello boissss"]
        [Button {:on-click (fn [_e]
                             (ws-connect "ws://localhost:3000/ws")
                             (peer-connect))}
