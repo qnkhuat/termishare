@@ -102,7 +102,7 @@
     (fn []
       [:<>
        ;[:div {:id "termishare"}]
-       [:h1 {:class "font-bold"} "Hello boissss"]
+       [:h1 {:class "font-bold text-blue-400"} "Hello boissss"]
        [Button {:on-click (fn [_e]
                             (ws-connect "ws://localhost:3000/ws")
                             (peer-connect))}
