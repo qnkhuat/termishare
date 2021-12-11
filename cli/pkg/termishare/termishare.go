@@ -61,7 +61,23 @@ func (ts *Termishare) Start() error {
 
 		// Register channel opening handling
 		d.OnOpen(func() {
-			ts.dataChannels[cfg.TERMISHARE_WEBRTC_DATACHANNEL] = d
+			switch label := d.Label(); label {
+			case "termishare":
+				d.OnMessage(func(msg webrtc.DataChannelMessage) {
+					log.Printf("termishare channel got message: %v", msg)
+					ts.pty.Write(msg.Data)
+				})
+				ts.dataChannels[cfg.TERMISHARE_WEBRTC_DATA_CHANNEL] = d
+
+			case "config":
+				d.OnMessage(func(msg webrtc.DataChannelMessage) {
+					log.Printf("config channel got message: %v", msg)
+				})
+				ts.dataChannels[cfg.TERMISHARE_WEBRTC_CONFIG_CHANNEL] = d
+
+			default:
+				log.Printf("Unahdled data channel with label: %s", d.Label())
+			}
 		})
 	})
 
@@ -238,7 +254,7 @@ func (ts *Termishare) writeWebsocket(msg message.Wrapper) error {
 
 func (ts *Termishare) Write(data []byte) (int, error) {
 	log.Printf("Need to send a message : %d", len(data))
-	if channel, ok := ts.dataChannels[cfg.TERMISHARE_WEBRTC_DATACHANNEL]; ok {
+	if channel, ok := ts.dataChannels[cfg.TERMISHARE_WEBRTC_DATA_CHANNEL]; ok {
 		channel.Send(data)
 		log.Printf("Sent a message : %d", len(data))
 	}

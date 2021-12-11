@@ -6,6 +6,14 @@
             [termishare.components.mui :refer [Button]]))
 
 ;;; ------------------------------ Utils ------------------------------
+(defonce state
+  (r/atom {:ws-conn       nil
+           :peer-conn     nil
+           :data-channels {}
+           :term          nil}))
+
+(defonce text-encoder (js/TextEncoder.))
+
 (defn send-when-connected
   "Send a message via a websocket connection, Retry if it fails"
   ([ws-conn msg]
@@ -14,17 +22,9 @@
   ([ws-conn msg n limit]
    (if (< n limit)
      (if (= (.-readyState ws-conn) 1)
-       (do
-        (js/console.log "Sending out:" (clj->js msg))
-        (.send ws-conn (js/JSON.stringify (clj->js msg))))
+       (.send ws-conn (js/JSON.stringify (clj->js msg)))
        (js/setTimeout (fn [] (send-when-connected ws-conn msg (inc n) limit)) 10))
      (js/console.log "Drop message due reached retry limits: " (clj->js msg)))))
-
-(defonce state
-  (r/atom {:ws-conn       nil
-           :peer-conn     nil
-           :data-channels {}
-           :term          nil}))
 
 ;;; ------------------------------ Web Socket ------------------------------
 (defn websocket-onmessage
@@ -33,6 +33,8 @@
         data (-> msg .-Data js/JSON.parse)]
     (js/console.log "Recevied a message: " (clj->js msg))
     (case (keyword (.-Type msg))
+      :WillYouMarryMe
+      (js/console.log "We shouldn't received this question, we should be the want who asks that")
       :Yes
       (.setRemoteDescription (:peer-conn @state) data)
       :Kiss
@@ -91,8 +93,7 @@
   []
   (let [conn    (js/RTCPeerConnection. ice-candidate-config)
         termishare-channel (.createDataChannel conn "termishare")
-        config-channel (.createDataChannel conn "config")
-        ]
+        config-channel (.createDataChannel conn "config")]
     (set! (.-onconnectionstatechange conn) (fn [e] (js/console.log "Peer connection state change: " (clj->js e))))
     (set! (.-onicecandidate conn) rtc-onicecandidate)
     (set! (.-ondatachannel conn) rtc-ondatachannel)
@@ -103,9 +104,6 @@
     (swap! state assoc-in [:data-channels :termishare] termishare-channel)
     (swap! state assoc-in [:data-channels :config] config-channel)
     (swap! state assoc :peer-conn conn)))
-
-(swap! state assoc-in [:data-channels :termishare] 1)
-
 
 (defn add-tracks
   [stream]
@@ -131,6 +129,7 @@
                              (js/console.log "Failed to send offer " e))))))))
 
 ;;; ------------------------------ Component ------------------------------
+
 (defn App
   []
   (r/create-class
@@ -139,9 +138,10 @@
       (let [term (xterm/Terminal. #js {:cursorBlink true
                                        :scrollback 1000
                                        :disableStdin false})]
+        (.onData term (fn [data] (when-let [channel (-> @state :data-channels :termishare)]
+                                   (js/console.log "sending data: " data)
+                                   (.send channel (.encode text-encoder data)))))
         (.open term (js/document.getElementById "termishare"))
-        (.write term "Hello")
-        ;(set! (.-onData term) (fn [data] (js/console.log "Got data:" data)))
         (swap! state assoc :term term)))
 
 
@@ -155,7 +155,7 @@
                             (peer-connect))}
         "Connect"]
 
-      [Button {:on-click (fn [_e] (send-offer))}
+       [Button {:on-click (fn [_e] (send-offer))}
         "Send offer"]
 
        [Button {:on-click (fn [_e] (js/console.log (-> @state clj->js)))}
