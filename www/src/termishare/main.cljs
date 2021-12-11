@@ -14,18 +14,30 @@
   ([ws-conn msg n limit]
    (if (< n limit)
      (if (= (.-readyState ws-conn) 1)
-       (.send ws-conn msg)
+       (do
+        (js/console.log "Sending out:" (clj->js msg))
+        (.send ws-conn (js/JSON.stringify (clj->js msg))))
        (js/setTimeout (fn [] (send-when-connected ws-conn msg (inc n) limit)) 10))
      (js/console.log "Drop message due reached retry limits: " (clj->js msg)))))
 
 (defonce state
-  (r/atom {:ws-conn   nil
-           :peer-conn nil}))
+  (r/atom {:ws-conn      nil
+           :peer-conn    nil
+           :data-channel nil}))
 
 ;;; ------------------------------ Web Socket ------------------------------
 (defn websocket-onmessage
   [e]
-  (js/console.log "Received a message:" (.-data e)))
+  (let [msg  (-> e .-data js/JSON.parse)
+        data (-> msg .-Data js/JSON.parse)]
+    (js/console.log "Recevied a message: " (clj->js msg))
+    (case (keyword (.-Type msg))
+      :Yes
+      (.setRemoteDescription (:peer-conn @state) data)
+      :Kiss
+      (->> data
+           js/RTCIceCandidate.
+           (.addIceCandidate (:peer-conn @state))))))
 
 (defn websocket-onclose
   [_e]
@@ -52,8 +64,8 @@
   [e]
   (when  (.-candidate e)
     (send-when-connected (:ws-conn @state)
-                         {:type    :WillYouMarryMe
-                          :payload (.toJSON (.-candidate e))})))
+                         {:Type :Kiss
+                          :Data (-> e .-candidate .toJSON js/JSON.stringify)})))
 
 (defn rtc-ondatachannel
   [e]
@@ -63,12 +75,19 @@
     (set! (.-onmessage channel) (fn [e] (js/console.log "Recevied a message from channel: "
                                                         (.-label channel) " " (.-data e))))))
 
+(defn channel-onmessage
+  [e]
+  (js/console.log "Channel received a message: " (-> e .-data clj->js)))
+
 (defn peer-connect
   []
-  (let [conn (js/RTCPeerConnection. ice-candidate-config)]
+  (let [conn    (js/RTCPeerConnection. ice-candidate-config)
+        channel (.createDataChannel conn "termishare")]
     (set! (.-onconnectionstatechange conn) (fn [e] (js/console.log "Peer connection state change: " (clj->js e))))
     (set! (.-onicecandidate conn) rtc-onicecandidate)
     (set! (.-ondatachannel conn) rtc-ondatachannel)
+    (set! (.-onmessage channel) channel-onmessage)
+    (swap! state assoc :data-channel channel)
     (swap! state assoc :peer-conn conn)))
 
 (defn add-tracks
@@ -85,7 +104,14 @@
       (.then (fn [stream]
                (add-tracks stream)))
       (.then (fn []
-               (send-offer)))))
+               (-> (:peer-conn @state)
+                   .createOffer
+                   (.then (fn [offer]
+                            (.setLocalDescription (:peer-conn @state) offer)
+                            (send-when-connected (:ws-conn @state) {:Type :WillYouMarryMe
+                                                                    :Data (js/JSON.stringify offer)})))
+                   (.catch (fn [e]
+                             (js/console.log "Failed to send offer " e))))))))
 
 ;;; ------------------------------ Component ------------------------------
 (defn App
@@ -108,8 +134,8 @@
                             (peer-connect))}
         "Connect"]
 
-      [Button {:on-click (fn [_e] (js/console.log (-> @state clj->js)))}
-        ""]
+      [Button {:on-click (fn [_e] (send-offer))}
+        "Send offer"]
 
        [Button {:on-click (fn [_e] (js/console.log (-> @state clj->js)))}
         "Print states"]])}))
