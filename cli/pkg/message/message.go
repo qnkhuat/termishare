@@ -14,7 +14,7 @@ const (
 
 type Wrapper struct {
 	Type MType
-	Data string // should be interface{}
+	Data interface{} // should be interface{}
 }
 
 // *** Helper functions ***

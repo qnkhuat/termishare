@@ -56,26 +56,12 @@ func (ts *Termishare) Start() error {
 	// Initiate peer connection
 	peerConn, err := NewPeerConnection()
 
-	// TODO: this should goes to termishare
 	peerConn.OnDataChannel(func(d *webrtc.DataChannel) {
-		ts.dataChannels["termishare"] = d
 		log.Printf("New DataChannel %s %d\n", d.Label(), d.ID())
 
 		// Register channel opening handling
 		d.OnOpen(func() {
-			log.Printf("Data channel '%s'-'%d' open. Random messages will now be sent to any connected DataChannels every 5 seconds\n", d.Label(), d.ID())
-
-			for range time.NewTicker(5 * time.Second).C {
-				message := "ngockq"
-
-				log.Printf("Sending '%s'\n", message)
-
-				// Send the message as text
-				sendErr := d.SendText(message)
-				if sendErr != nil {
-					panic(sendErr)
-				}
-			}
+			ts.dataChannels[cfg.TERMISHARE_WEBRTC_DATACHANNEL] = d
 		})
 	})
 
@@ -133,7 +119,6 @@ func (ts *Termishare) Start() error {
 	}()
 
 	ts.pty.Wait() // Blocking until user exit
-	ts.Stop("Bye!")
 	return nil
 }
 
@@ -188,7 +173,7 @@ func (ts *Termishare) handleWebSocketMessage(msg message.Wrapper) error {
 	// offer
 	case message.TRTCWillYouMarryMe:
 		offer := webrtc.SessionDescription{}
-		if err := json.Unmarshal([]byte(msg.Data), &offer); err != nil {
+		if err := json.Unmarshal([]byte(msg.Data.(string)), &offer); err != nil {
 			log.Println(err)
 			return err
 		}
@@ -221,7 +206,7 @@ func (ts *Termishare) handleWebSocketMessage(msg message.Wrapper) error {
 
 	case message.TRTCKiss:
 		candidate := webrtc.ICECandidateInit{}
-		if err := json.Unmarshal([]byte(msg.Data), &candidate); err != nil {
+		if err := json.Unmarshal([]byte(msg.Data.(string)), &candidate); err != nil {
 			log.Println(err)
 			return err
 		}
@@ -252,7 +237,10 @@ func (ts *Termishare) writeWebsocket(msg message.Wrapper) error {
 }
 
 func (ts *Termishare) Write(data []byte) (int, error) {
-	//d["termishare"].sendText()
 	log.Printf("Need to send a message : %d", len(data))
+	if channel, ok := ts.dataChannels[cfg.TERMISHARE_WEBRTC_DATACHANNEL]; ok {
+		channel.Send(data)
+		log.Printf("Sent a message : %d", len(data))
+	}
 	return len(data), nil
 }

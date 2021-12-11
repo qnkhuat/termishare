@@ -23,7 +23,8 @@
 (defonce state
   (r/atom {:ws-conn      nil
            :peer-conn    nil
-           :data-channel nil}))
+           :data-channel nil
+           :term         nil}))
 
 ;;; ------------------------------ Web Socket ------------------------------
 (defn websocket-onmessage
@@ -77,12 +78,17 @@
 
 (defn channel-onmessage
   [e]
-  (js/console.log "Channel received a message: " (-> e .-data clj->js)))
+  (let [data (-> e .-data)
+        text-decoded (js/TextDecoder. "utf-8")]
+    (js/console.log "Encoded: " (.decode text-decoded data))
+    (js/console.log "Channel received a messagessssssss: " data )
+    (.writeUtf8 (:term @state) data)))
 
 (defn peer-connect
   []
   (let [conn    (js/RTCPeerConnection. ice-candidate-config)
         channel (.createDataChannel conn "termishare")]
+    (set! (.-binaryType channel) "arraybuffer")
     (set! (.-onconnectionstatechange conn) (fn [e] (js/console.log "Peer connection state change: " (clj->js e))))
     (set! (.-onicecandidate conn) rtc-onicecandidate)
     (set! (.-ondatachannel conn) rtc-ondatachannel)
@@ -119,15 +125,16 @@
   (r/create-class
    {:component-did-mount
     (fn []
-     ; (let [term (xterm/Terminal.)]
-     ;   (.open term (js/document.getElementById "termishare"))
-     ;   (.write term "Hello"))
-      )
+      (let [term (xterm/Terminal.)]
+        (.open term (js/document.getElementById "termishare"))
+        (.write term "Hello")
+        (swap! state assoc :term term)))
+
 
     :reagent-render
     (fn []
       [:<>
-       ;[:div {:id "termishare"}]
+       [:div {:id "termishare"}]
        [:h1 {:class "font-bold text-blue-400"} "Hello boissss"]
        [Button {:on-click (fn [_e]
                             (ws-connect "ws://localhost:3000/ws")
