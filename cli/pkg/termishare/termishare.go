@@ -72,7 +72,28 @@ func (ts *Termishare) Start() error {
 	peerConn.OnConnectionStateChange(func(s webrtc.PeerConnectionState) {
 		log.Printf("Peer connection state has changed: %s", s.String())
 		if s == webrtc.PeerConnectionStateConnected {
-			ts.pty.Refresh()
+			time.AfterFunc(500*time.Millisecond, func() {
+
+				ts.pty.Refresh()
+				ws, err := pty.GetWinsize(0)
+				if err != nil {
+					log.Printf("Failed to get winsize after refresh: %s", err)
+					return
+				}
+
+				// retry send winsize message until client get it
+				for {
+					err = ts.writeConfig(message.Wrapper{
+						Type: message.TTermWinsize,
+						Data: message.Winsize{
+							Rows: ws.Rows,
+							Cols: ws.Cols}})
+					if err == nil {
+						break
+					}
+					time.Sleep(250 * time.Millisecond)
+				}
+			})
 		}
 	})
 
@@ -278,7 +299,6 @@ func (ts *Termishare) writeConfig(msg message.Wrapper) error {
 		util.Chk(err, "Failed to Send config")
 		return err
 	}
-	log.Printf("Config channel not found")
 	return fmt.Errorf("Config channel not found")
 }
 

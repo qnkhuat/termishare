@@ -3,6 +3,7 @@
             [reagent.core :as r]
             [clojure.edn :as edn]
             ["xterm" :as xterm]
+            ["xterm-addon-fit" :as xterm-addon-fit]
             [termishare.components.mui :refer [Button]]))
 
 ;;; ------------------------------ Utils ------------------------------
@@ -10,7 +11,8 @@
   (r/atom {:ws-conn       nil
            :peer-conn     nil
            :data-channels {}
-           :term          nil}))
+           :term          nil
+           :addon-fit     nil}))
 
 (defonce text-encoder (js/TextEncoder.))
 (defonce text-decoder (js/TextDecoder. "utf-8"))
@@ -86,10 +88,16 @@
 
 (defn rtc-on-config-channel
   [e]
-  (when-let [ws (->> e .-data (.decode text-decoder) js/JSON.parse js->clj :Data)]
-    (when-let [term (:term @state)]
-      (js/cosnole.log (.resize term (:Cols ws) (:Rows ws))))
-    (js/console.log "config channel received a message: " ws)))
+  (let [msg (->> e .-data (.decode text-decoder) js/JSON.parse)
+        msg (js->clj msg :keywordize-keys true)]
+    (js/console.log "keyword msg " (clj->js msg))
+    (case (-> msg :Type keyword)
+      :Winsize (when-let [ws (:Data msg)]
+                 (.resize (:term @state) (:Cols ws) (:Rows ws))
+                 (.fit (:addon-fit @state)))
+
+      (js/console.log "I don't know you: " (clj->js msg)))))
+
 
 (defn peer-connect
   []
@@ -106,12 +114,6 @@
     (swap! state assoc-in [:data-channels :termishare] termishare-channel)
     (swap! state assoc-in [:data-channels :config] config-channel)
     (swap! state assoc :peer-conn conn)))
-
-(defn add-tracks
-  [stream]
-  (doseq [track (.getTracks stream)]
-    (js/console.log "adding track: " track)
-    (.addTrack (:peer-conn @state) track)))
 
 (defn send-offer
   []
@@ -132,14 +134,16 @@
   (r/create-class
    {:component-did-mount
     (fn []
-      (let [term (xterm/Terminal. #js {:cursorBlink true
-                                       :scrollback 1000
-                                       :disableStdin false})]
+      (let [term      (xterm/Terminal. #js {:cursorBlink true
+                                            :scrollback 1000
+                                            :disableStdin false})
+            addon-fit (xterm-addon-fit/FitAddon.)]
+        (.loadAddon term addon-fit)
         (.onData term (fn [data] (when-let [channel (-> @state :data-channels :termishare)]
-                                   (js/console.log "sending data: " data)
                                    (.send channel (.encode text-encoder data)))))
         (.open term (js/document.getElementById "termishare"))
-        (swap! state assoc :term term)))
+        (swap! state assoc :term term)
+        (swap! state assoc :addon-fit addon-fit)))
 
     :reagent-render
     (fn []
