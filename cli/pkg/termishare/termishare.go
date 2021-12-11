@@ -13,6 +13,7 @@ import (
 	"github.com/gorilla/websocket"
 	"github.com/pion/webrtc/v3"
 	"github.com/qnkhuat/termishare/internal/cfg"
+	"github.com/qnkhuat/termishare/internal/util"
 	"github.com/qnkhuat/termishare/pkg/message"
 	"github.com/qnkhuat/termishare/pkg/pty"
 )
@@ -24,12 +25,15 @@ type Termishare struct {
 	wsConn *websocket.Conn
 
 	// The main connection to exchange data
-	peerConn *webrtc.PeerConnection
+	peerConn     *webrtc.PeerConnection
+	dataChannels map[string]*webrtc.DataChannel
 }
 
 func New() *Termishare {
 	return &Termishare{
-		pty: pty.New()}
+		pty:          pty.New(),
+		dataChannels: make(map[string]*webrtc.DataChannel),
+	}
 }
 
 func (ts *Termishare) Start() error {
@@ -40,6 +44,7 @@ func (ts *Termishare) Start() error {
 	fmt.Printf("Press Enter to continue!")
 	bufio.NewReader(os.Stdin).ReadString('\n')
 	ts.pty.MakeRaw()
+	defer ts.Stop("Stop!")
 
 	wsConn, _, err := websocket.DefaultDialer.Dial("ws://localhost:3000/ws", nil)
 	if err != nil {
@@ -48,8 +53,52 @@ func (ts *Termishare) Start() error {
 	}
 	ts.wsConn = wsConn
 
-	// Initiate peer connectioi
-	peerConn, err := NewPeerConnection(wsConn)
+	// Initiate peer connection
+	peerConn, err := NewPeerConnection()
+
+	// TODO: this should goes to termishare
+	peerConn.OnDataChannel(func(d *webrtc.DataChannel) {
+		ts.dataChannels["termishare"] = d
+		log.Printf("New DataChannel %s %d\n", d.Label(), d.ID())
+
+		// Register channel opening handling
+		d.OnOpen(func() {
+			log.Printf("Data channel '%s'-'%d' open. Random messages will now be sent to any connected DataChannels every 5 seconds\n", d.Label(), d.ID())
+
+			for range time.NewTicker(5 * time.Second).C {
+				message := "ngockq"
+
+				log.Printf("Sending '%s'\n", message)
+
+				// Send the message as text
+				sendErr := d.SendText(message)
+				if sendErr != nil {
+					panic(sendErr)
+				}
+			}
+		})
+	})
+
+	peerConn.OnICECandidate(func(ice *webrtc.ICECandidate) {
+		if ice == nil {
+			return
+		}
+
+		candidate, err := json.Marshal(ice.ToJSON())
+		if err != nil {
+			log.Printf("Failed to decode ice candidate: %s", err)
+			return
+		}
+
+		payload := message.Wrapper{
+			Type: message.TRTCKiss,
+			Data: string(candidate),
+		}
+
+		err = ts.wsConn.WriteJSON(payload)
+		util.Chk(err, "Failed to write to websocket connection")
+	})
+
 	ts.peerConn = peerConn
 
 	go ts.startHandleWsMessages()
@@ -65,9 +114,9 @@ func (ts *Termishare) Start() error {
 
 	// Pipe command response to Pty and server
 	go func() {
-		//mw := io.MultiWriter(os.Stdout, s, s.tr)
-		//mw := io.MultiWriter(os.Stdout, s.recorder)
-		_, err := io.Copy(os.Stdout, ts.pty.F())
+		// Write both to stdout and remote
+		mw := io.MultiWriter(os.Stdout, ts)
+		_, err := io.Copy(mw, ts.pty.F())
 		if err != nil {
 			log.Printf("Failed to send pty to mw: %s", err)
 			ts.Stop("Failed to connect pty with server\n")
@@ -200,4 +249,10 @@ func (ts *Termishare) writeWebsocket(msg message.Wrapper) error {
 		return err
 	}
 	return nil
+}
+
+func (ts *Termishare) Write(data []byte) (int, error) {
+	//d["termishare"].sendText()
+	log.Printf("Need to send a message : %d", len(data))
+	return len(data), nil
 }
