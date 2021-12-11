@@ -44,17 +44,37 @@ func (ts *Termishare) Start() error {
 	fmt.Printf("Press Enter to continue!")
 	bufio.NewReader(os.Stdin).ReadString('\n')
 	ts.pty.MakeRaw()
-	defer ts.Stop("Stop!")
+	defer ts.Stop("Bye!")
 
+	// Initiate websocket connection for signaling
 	wsConn, _, err := websocket.DefaultDialer.Dial("ws://localhost:3000/ws", nil)
 	if err != nil {
-		ts.Stop(fmt.Sprintf("Failed to connect to websocket server: %s", err))
+		fmt.Printf("Failed to connect to websocket server: %s", err)
+		ts.Stop("Failed to connect to websocket server")
 		return err
 	}
 	ts.wsConn = wsConn
 
 	// Initiate peer connection
-	peerConn, err := NewPeerConnection()
+	var config = webrtc.Configuration{
+		ICEServers: []webrtc.ICEServer{{
+			URLs: []string{"stun:stun.l.google.com:19302"}},
+		},
+	}
+	peerConn, err := webrtc.NewPeerConnection(config)
+	if err != nil {
+		fmt.Printf("Failed to create peer connection: %s", err)
+		ts.Stop("Failed to create Peer Connection")
+		return err
+	}
+	ts.peerConn = peerConn
+
+	peerConn.OnConnectionStateChange(func(s webrtc.PeerConnectionState) {
+		log.Printf("Peer connection state has changed: %s", s.String())
+		if s == webrtc.PeerConnectionStateConnected {
+			ts.pty.Refresh()
+		}
+	})
 
 	peerConn.OnDataChannel(func(d *webrtc.DataChannel) {
 		log.Printf("New DataChannel %s %d\n", d.Label(), d.ID())
@@ -62,21 +82,21 @@ func (ts *Termishare) Start() error {
 		// Register channel opening handling
 		d.OnOpen(func() {
 			switch label := d.Label(); label {
-			case "termishare":
+
+			case cfg.TERMISHARE_WEBRTC_DATA_CHANNEL:
 				d.OnMessage(func(msg webrtc.DataChannelMessage) {
-					log.Printf("termishare channel got message: %v", msg)
 					ts.pty.Write(msg.Data)
 				})
 				ts.dataChannels[cfg.TERMISHARE_WEBRTC_DATA_CHANNEL] = d
 
-			case "config":
+			case cfg.TERMISHARE_WEBRTC_CONFIG_CHANNEL:
 				d.OnMessage(func(msg webrtc.DataChannelMessage) {
 					log.Printf("config channel got message: %v", msg)
 				})
 				ts.dataChannels[cfg.TERMISHARE_WEBRTC_CONFIG_CHANNEL] = d
 
 			default:
-				log.Printf("Unahdled data channel with label: %s", d.Label())
+				log.Printf("Unhandled data channel with label: %s", d.Label())
 			}
 		})
 	})
@@ -92,26 +112,24 @@ func (ts *Termishare) Start() error {
 			return
 		}
 
-		payload := message.Wrapper{
+		msg := message.Wrapper{
 			Type: message.TRTCKiss,
 			Data: string(candidate),
 		}
 
-		err = ts.wsConn.WriteJSON(payload)
-		util.Chk(err, "Failed to write to websocket connection")
+		ts.writeWebsocket(msg)
 	})
-
-	ts.peerConn = peerConn
 
 	go ts.startHandleWsMessages()
 
-	// Send a winsize message at first
-	//winSize, _ := ptyMaster.GetWinsize(0)
-	//s.writeWinsize(winSize.Rows, winSize.Cols)
-
 	// Send a winsize message when ever terminal change size
 	ts.pty.SetWinChangeCB(func(ws *ptyDevice.Winsize) {
-		//ts.writeWinsize(ws.Rows, ws.Cols)
+		ts.writeConfig(message.Wrapper{
+			Type: message.TTermWinsize,
+			Data: message.Winsize{
+				Rows: ws.Rows,
+				Cols: ws.Cols},
+		})
 	})
 
 	// Pipe command response to Pty and server
@@ -149,7 +167,6 @@ func (ts *Termishare) Stop(msg string) {
 		ts.pty.Restore()
 	}
 
-	fmt.Println()
 	fmt.Println(msg)
 }
 
@@ -216,9 +233,7 @@ func (ts *Termishare) handleWebSocketMessage(msg message.Wrapper) error {
 			Type: message.TRTCYes,
 			Data: string(answerByte),
 		}
-		if err = ts.wsConn.WriteJSON(payload); err != nil {
-			log.Printf("Failed to send answer: %s", err)
-		}
+		ts.writeWebsocket(payload)
 
 	case message.TRTCKiss:
 		candidate := webrtc.ICECandidateInit{}
@@ -239,7 +254,7 @@ func (ts *Termishare) handleWebSocketMessage(msg message.Wrapper) error {
 	return nil
 }
 
-// shortcutt o write to websocket connection
+// shortcut to write to websocket connection
 func (ts *Termishare) writeWebsocket(msg message.Wrapper) error {
 	if ts.wsConn == nil {
 		return fmt.Errorf("Websocket not connected")
@@ -252,11 +267,27 @@ func (ts *Termishare) writeWebsocket(msg message.Wrapper) error {
 	return nil
 }
 
+func (ts *Termishare) writeConfig(msg message.Wrapper) error {
+	if channel, ok := ts.dataChannels[cfg.TERMISHARE_WEBRTC_CONFIG_CHANNEL]; ok {
+		payload, err := json.Marshal(msg)
+		if err != nil {
+			log.Printf("Failed to marshal config: %s", err)
+			return err
+		}
+		err = channel.Send(payload)
+		util.Chk(err, "Failed to Send config")
+		return err
+	}
+	log.Printf("Config channel not found")
+	return fmt.Errorf("Config channel not found")
+}
+
+// Write method to forward terminal changes over webrtc
 func (ts *Termishare) Write(data []byte) (int, error) {
-	log.Printf("Need to send a message : %d", len(data))
 	if channel, ok := ts.dataChannels[cfg.TERMISHARE_WEBRTC_DATA_CHANNEL]; ok {
 		channel.Send(data)
-		log.Printf("Sent a message : %d", len(data))
+	} else {
+		log.Printf("Termishare channel not found")
 	}
 	return len(data), nil
 }

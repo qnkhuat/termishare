@@ -10,11 +10,18 @@ const (
 	TRTCWillYouMarryMe MType = "WillYouMarryMe" // Offer
 	TRTCYes            MType = "Yes"            // Answer
 	TRTCKiss           MType = "Kiss"           // Candidate
+
+	TTermWinsize MType = "Winsize" // Update winsize
 )
 
 type Wrapper struct {
 	Type MType
 	Data interface{} // should be interface{}
+}
+
+type Winsize struct {
+	Rows uint16
+	Cols uint16
 }
 
 // *** Helper functions ***

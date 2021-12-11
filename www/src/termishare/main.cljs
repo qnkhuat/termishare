@@ -13,6 +13,7 @@
            :term          nil}))
 
 (defonce text-encoder (js/TextEncoder.))
+(defonce text-decoder (js/TextDecoder. "utf-8"))
 
 (defn send-when-connected
   "Send a message via a websocket connection, Retry if it fails"
@@ -34,7 +35,7 @@
     (js/console.log "Recevied a message: " (clj->js msg))
     (case (keyword (.-Type msg))
       :WillYouMarryMe
-      (js/console.log "We shouldn't received this question, we should be the want who asks that")
+      (js/console.log "We shouldn't received this question, we should be the one who asks that")
       :Yes
       (.setRemoteDescription (:peer-conn @state) data)
       :Kiss
@@ -85,9 +86,10 @@
 
 (defn rtc-on-config-channel
   [e]
-  (let [data (-> e .-data js/Uint8Array.)]
-    (js/console.log "config channel received a message: " data)
-    #_(.writeUtf8 (:term @state) data)))
+  (when-let [ws (->> e .-data (.decode text-decoder) js/JSON.parse js->clj :Data)]
+    (when-let [term (:term @state)]
+      (js/cosnole.log (.resize term (:Cols ws) (:Rows ws))))
+    (js/console.log "config channel received a message: " ws)))
 
 (defn peer-connect
   []
