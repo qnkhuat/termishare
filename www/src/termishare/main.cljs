@@ -78,10 +78,7 @@
 
 (defn channel-onmessage
   [e]
-  (let [data (-> e .-data)
-        text-decoded (js/TextDecoder. "utf-8")]
-    (js/console.log "Encoded: " (.decode text-decoded data))
-    (js/console.log "Channel received a messagessssssss: " data )
+  (let [data (-> e .-data js/Uint8Array.)]
     (.writeUtf8 (:term @state) data)))
 
 (defn peer-connect
