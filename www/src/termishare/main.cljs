@@ -21,10 +21,10 @@
      (js/console.log "Drop message due reached retry limits: " (clj->js msg)))))
 
 (defonce state
-  (r/atom {:ws-conn      nil
-           :peer-conn    nil
-           :data-channel nil
-           :term         nil}))
+  (r/atom {:ws-conn       nil
+           :peer-conn     nil
+           :data-channels {}
+           :term          nil}))
 
 ;;; ------------------------------ Web Socket ------------------------------
 (defn websocket-onmessage
@@ -76,22 +76,36 @@
     (set! (.-onmessage channel) (fn [e] (js/console.log "Recevied a message from channel: "
                                                         (.-label channel) " " (.-data e))))))
 
-(defn channel-onmessage
+(defn rtc-on-termishare-channel
   [e]
   (let [data (-> e .-data js/Uint8Array.)]
     (.writeUtf8 (:term @state) data)))
 
+(defn rtc-on-config-channel
+  [e]
+  (let [data (-> e .-data js/Uint8Array.)]
+    (js/console.log "config channel received a message: " data)
+    #_(.writeUtf8 (:term @state) data)))
+
 (defn peer-connect
   []
   (let [conn    (js/RTCPeerConnection. ice-candidate-config)
-        channel (.createDataChannel conn "termishare")]
-    (set! (.-binaryType channel) "arraybuffer")
+        termishare-channel (.createDataChannel conn "termishare")
+        config-channel (.createDataChannel conn "config")
+        ]
     (set! (.-onconnectionstatechange conn) (fn [e] (js/console.log "Peer connection state change: " (clj->js e))))
     (set! (.-onicecandidate conn) rtc-onicecandidate)
     (set! (.-ondatachannel conn) rtc-ondatachannel)
-    (set! (.-onmessage channel) channel-onmessage)
-    (swap! state assoc :data-channel channel)
+    (set! (.-binaryType termishare-channel) "arraybuffer")
+    (set! (.-binaryType config-channel) "arraybuffer")
+    (set! (.-onmessage termishare-channel) rtc-on-termishare-channel)
+    (set! (.-onmessage config-channel) rtc-on-config-channel)
+    (swap! state assoc-in [:data-channels :termishare] termishare-channel)
+    (swap! state assoc-in [:data-channels :config] config-channel)
     (swap! state assoc :peer-conn conn)))
+
+(swap! state assoc-in [:data-channels :termishare] 1)
+
 
 (defn add-tracks
   [stream]
@@ -122,9 +136,12 @@
   (r/create-class
    {:component-did-mount
     (fn []
-      (let [term (xterm/Terminal.)]
+      (let [term (xterm/Terminal. #js {:cursorBlink true
+                                       :scrollback 1000
+                                       :disableStdin false})]
         (.open term (js/document.getElementById "termishare"))
         (.write term "Hello")
+        ;(set! (.-onData term) (fn [data] (js/console.log "Got data:" data)))
         (swap! state assoc :term term)))
 
 
