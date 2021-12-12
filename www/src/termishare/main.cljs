@@ -16,6 +16,7 @@
 
 (defonce text-encoder (js/TextEncoder.))
 (defonce text-decoder (js/TextDecoder. "utf-8"))
+(def terminal-id "terminal")
 
 (defn send-when-connected
   "Send a message via a websocket connection, Retry if it fails"
@@ -28,6 +29,26 @@
        (.send ws-conn (js/JSON.stringify (clj->js msg)))
        (js/setTimeout (fn [] (send-when-connected ws-conn msg (inc n) limit)) 10))
      (js/console.log "Drop message due reached retry limits: " (clj->js msg)))))
+
+(defn element-size
+  [el]
+  (when el
+    {:width (.-offsetWidth el)
+     :height (.-offsetHeight el)}))
+
+(defn guess-new-font-size
+  [new-cols new-rows target-size]
+  (let [term (:term @state)
+        cur-cols (.-cols term)
+        cur-rows (.-rows term)
+        cur-font-size (.getOption term "fontSize")
+        xterm-size (element-size (-> (js/document.getElementById terminal-id) (.querySelector "xterm-screen")))
+        new-hfont-mulp (* (/ cur-cols new-cols) (/ (:width target-size) (:width xterm-size)))
+        new-vfont-mulp (* (/ cur-rows new-rows) (/ (:height target-size) (:height xterm-size)))]
+    (if (> new-hfont-mulp new-vfont-mulp)
+      (int (Math/floor (* cur-font-size new-vfont-mulp)))
+      (int (Math/floor (* cur-font-size new-hfont-mulp))))))
+
 
 ;;; ------------------------------ Web Socket ------------------------------
 (defn websocket-onmessage
@@ -92,12 +113,14 @@
         msg (js->clj msg :keywordize-keys true)]
     (js/console.log "keyword msg " (clj->js msg))
     (case (-> msg :Type keyword)
-      :Winsize (when-let [ws (:Data msg)]
-                 (.resize (:term @state) (:Cols ws) (:Rows ws))
-                 (.fit (:addon-fit @state)))
+      :Winsize (let [ws (:Data msg)
+                     term (:term @state)]
+                 (.setOption term (guess-new-font-size (.-cols term) (.-rows term) (element-size (js/document.getElementById terminal-id))))
+                 (.resize term (:Cols ws) (:Rows ws))
+                 #_(.fit (:addon-fit @state)))
+
 
       (js/console.log "I don't know you: " (clj->js msg)))))
-
 
 (defn peer-connect
   []
@@ -129,26 +152,28 @@
 
 ;;; ------------------------------ Component ------------------------------
 
+
 (defn App
   []
   (r/create-class
    {:component-did-mount
     (fn []
-      (let [term      (xterm/Terminal. #js {:cursorBlink true
-                                            :scrollback 1000
+      (let [term      (xterm/Terminal. #js {:cursorBlink  true
+                                            :scrollback   1000
                                             :disableStdin false})
             addon-fit (xterm-addon-fit/FitAddon.)]
         (.loadAddon term addon-fit)
+        #_(.fit addon-fit)
         (.onData term (fn [data] (when-let [channel (-> @state :data-channels :termishare)]
                                    (.send channel (.encode text-encoder data)))))
-        (.open term (js/document.getElementById "termishare"))
+        (.open term (js/document.getElementById terminal-id))
         (swap! state assoc :term term)
         (swap! state assoc :addon-fit addon-fit)))
 
     :reagent-render
     (fn []
       [:<>
-       [:div {:id "termishare"}]
+       [:div {:id terminal-id :class "w-screen h-screen fixed top-0 left-0"}]
        [Button {:on-click (fn [_e]
                             (ws-connect "ws://localhost:3000/ws")
                             (peer-connect))}

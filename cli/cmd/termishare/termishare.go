@@ -7,7 +7,6 @@ import (
 
 func main() {
 	logging.Config(".log", "TERMISHARE: ")
-
 	ts := termishare.New()
 	ts.Start()
 	return
