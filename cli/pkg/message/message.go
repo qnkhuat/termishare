@@ -16,7 +16,9 @@ const (
 
 type Wrapper struct {
 	Type MType
-	Data interface{} // should be interface{}
+	Data interface{}
+	From string
+	To   string
 }
 
 type Winsize struct {

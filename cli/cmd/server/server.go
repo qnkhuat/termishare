@@ -5,7 +5,6 @@ import (
 	"github.com/gorilla/mux"
 	"github.com/gorilla/websocket"
 	"github.com/qnkhuat/termishare/internal/cfg"
-	"github.com/qnkhuat/termishare/internal/util"
 	"github.com/qnkhuat/termishare/pkg/logging"
 	"github.com/qnkhuat/termishare/pkg/message"
 	"log"
@@ -46,7 +45,6 @@ type Server struct {
 }
 
 func New(addr string) *Server {
-
 	return &Server{
 		addr: addr,
 	}
@@ -65,6 +63,18 @@ func (sv *Server) WShandler(w http.ResponseWriter, r *http.Request) {
 	}
 	sv.AddConn(conn)
 
+	conn.SetCloseHandler(func(code int, text string) error {
+		for i, c := range sv.conns {
+			if c == conn {
+				log.Printf("Removing a connection due closed")
+				sv.lock.Lock()
+				sv.conns = append(sv.conns[:i], sv.conns[i+1:]...)
+				sv.lock.Unlock()
+			}
+		}
+		return nil
+	})
+
 	log.Printf("New connection - %d", len(sv.conns))
 
 	for {
@@ -76,7 +86,6 @@ func (sv *Server) WShandler(w http.ResponseWriter, r *http.Request) {
 			conn.Close()
 			return
 		}
-		//log.Printf("Got a message: %v", msg)
 
 		// Broadcast the message to everyone
 		for _, c := range sv.conns {
@@ -105,7 +114,10 @@ func (sv *Server) Start() {
 
 	sv.server = &http.Server{Addr: sv.addr, Handler: router}
 	err := sv.server.ListenAndServe()
-	util.Must(err, "Failed to start server")
+
+	if err != nil {
+		log.Printf("Failed to start server: %s", err)
+	}
 }
 
 func main() {

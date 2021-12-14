@@ -1,10 +1,10 @@
 (ns termishare.main
   (:require [reagent.dom :as rd]
             [reagent.core :as r]
-            [clojure.edn :as edn]
+            [termishare.constants :as const]
             ["xterm" :as xterm]
-            ["xterm-addon-fit" :as xterm-addon-fit]
-            [termishare.components.mui :refer [Button]]))
+            [termishare.components.mui :refer [Button]]
+            ["xterm-addon-fit" :as xterm-addon-fit]))
 
 ;;; ------------------------------ Utils ------------------------------
 (defonce state
@@ -12,7 +12,8 @@
            :peer-conn     nil
            :data-channels {}
            :term          nil
-           :addon-fit     nil}))
+           :addon-fit     nil
+           :connection-id (str (random-uuid))}))
 
 (defonce text-encoder (js/TextEncoder.))
 (defonce text-decoder (js/TextDecoder. "utf-8"))
@@ -21,13 +22,21 @@
 (defn send-when-connected
   "Send a message via a websocket connection, Retry if it fails"
   ([ws-conn msg]
+   (js/console.log "Registered to send " (clj->js (assoc msg
+                                                         :From (:connection-id @state)
+                                                         :To const/TERMISHARE_WEBSOCKET_HOST_ID)))
    (send-when-connected ws-conn msg 0 100))
 
   ([ws-conn msg n limit]
    (if (< n limit)
      (if (= (.-readyState ws-conn) 1)
-       (.send ws-conn (js/JSON.stringify (clj->js msg)))
-       (js/setTimeout (fn [] (send-when-connected ws-conn msg (inc n) limit)) 10))
+       ;; TODO a better way to handle ID
+       (do
+        (js/console.log "sending out:" (clj->js msg))
+        (.send ws-conn (js/JSON.stringify (clj->js (assoc msg
+                                                          :From (:connection-id @state)
+                                                          :To const/TERMISHARE_WEBSOCKET_HOST_ID)))))
+       (js/setTimeout (fn [] (send-when-connected ws-conn msg (inc n) limit)) 1))
      (js/console.log "Drop message due reached retry limits: " (clj->js msg)))))
 
 (defn element-size
@@ -49,22 +58,30 @@
       (int (Math/floor (* cur-font-size new-vfont-mulp)))
       (int (Math/floor (* cur-font-size new-hfont-mulp))))))
 
-
 ;;; ------------------------------ Web Socket ------------------------------
 (defn websocket-onmessage
   [e]
   (let [msg  (-> e .-data js/JSON.parse)
         data (-> msg .-Data js/JSON.parse)]
-    (js/console.log "Recevied a message: " (clj->js msg))
-    (case (keyword (.-Type msg))
-      :WillYouMarryMe
-      (js/console.log "We shouldn't received this question, we should be the one who asks that")
-      :Yes
-      (.setRemoteDescription (:peer-conn @state) data)
-      :Kiss
-      (->> data
-           js/RTCIceCandidate.
-           (.addIceCandidate (:peer-conn @state))))))
+
+    ;; only handle messages that are sent by the host to us
+    (js/console.log "received a message:" msg)
+    (when (and (= (:connection-id @state) (.-To msg))
+               (= const/TERMISHARE_WEBSOCKET_HOST_ID (.-From msg)))
+      (condp = (keyword (.-Type msg))
+        const/TRTCWillYouMarryMe
+        (js/console.log "We shouldn't received this question, we should be the one who asks that")
+
+        const/TRTCYes
+        (.setRemoteDescription (:peer-conn @state) data)
+
+        const/TRTCKiss
+        (->> data
+             js/RTCIceCandidate.
+             (.addIceCandidate (:peer-conn @state)))
+
+        :else
+        (js/console.error "Unhandeled message type: " (.-Type msg))))))
 
 (defn websocket-onclose
   [_e]
@@ -91,7 +108,7 @@
   [e]
   (when  (.-candidate e)
     (send-when-connected (:ws-conn @state)
-                         {:Type :Kiss
+                         {:Type const/TRTCKiss
                           :Data (-> e .-candidate .toJSON js/JSON.stringify)})))
 
 (defn rtc-ondatachannel
@@ -111,22 +128,22 @@
   [e]
   (let [msg (->> e .-data (.decode text-decoder) js/JSON.parse)
         msg (js->clj msg :keywordize-keys true)]
-    (js/console.log "keyword msg " (clj->js msg))
-    (case (-> msg :Type keyword)
-      :Winsize (let [ws (:Data msg)
-                     term (:term @state)]
-                 (.setOption term (guess-new-font-size (.-cols term) (.-rows term) (element-size (js/document.getElementById terminal-id))))
-                 (.resize term (:Cols ws) (:Rows ws))
-                 #_(.fit (:addon-fit @state)))
 
+    (condp = (-> msg :Type keyword)
+      const/TTermWinsize
+      (let [ws (:Data msg)
+            term (:term @state)]
+        (.setOption term (guess-new-font-size (.-cols term) (.-rows term)
+                                              (element-size (js/document.getElementById terminal-id))))
+        (.resize term (:Cols ws) (:Rows ws)))
 
       (js/console.log "I don't know you: " (clj->js msg)))))
 
 (defn peer-connect
   []
   (let [conn               (js/RTCPeerConnection. ice-candidate-config)
-        termishare-channel (.createDataChannel conn "termishare")
-        config-channel     (.createDataChannel conn "config")]
+        termishare-channel (.createDataChannel conn (str const/TERMISHARE_WEBRTC_DATA_CHANNEL))
+        config-channel     (.createDataChannel conn (str const/TERMISHARE_WEBRTC_CONFIG_CHANNEL))]
     (set! (.-onconnectionstatechange conn) (fn [e] (js/console.log "Peer connection state change: " (clj->js e))))
     (set! (.-onicecandidate conn) rtc-onicecandidate)
     (set! (.-ondatachannel conn) rtc-ondatachannel)
@@ -144,7 +161,7 @@
       .createOffer
       (.then (fn [offer]
                (.setLocalDescription (:peer-conn @state) offer)
-               (send-when-connected (:ws-conn @state) {:Type :WillYouMarryMe
+               (send-when-connected (:ws-conn @state) {:Type const/TRTCWillYouMarryMe
                                                        :Data (js/JSON.stringify offer)})))
       (.catch (fn [e]
                 (js/console.log "Failed to send offer " e)))))
@@ -168,7 +185,12 @@
                                    (.send channel (.encode text-encoder data)))))
         (.open term (js/document.getElementById terminal-id))
         (swap! state assoc :term term)
-        (swap! state assoc :addon-fit addon-fit)))
+        (swap! state assoc :addon-fit addon-fit)
+
+        ; connect
+        #_(ws-connect "ws://localhost:3000/ws")
+        #_(peer-connect)
+        #_(send-offer)))
 
     :reagent-render
     (fn []
@@ -176,14 +198,11 @@
        [:div {:id terminal-id :class "w-screen h-screen fixed top-0 left-0"}]
        [Button {:on-click (fn [_e]
                             (ws-connect "ws://localhost:3000/ws")
-                            (peer-connect))}
-        "Connect"]
+                            (peer-connect))} "Connect"]
+       [Button {:on-click (fn [_e]
+                            (send-offer))} "Send offer"]
 
-       [Button {:on-click (fn [_e] (send-offer))}
-        "Send offer"]
-
-       [Button {:on-click (fn [_e] (js/console.log (-> @state clj->js)))}
-        "Print states"]])}))
+       ])}))
 
 (defn init []
   (rd/render
