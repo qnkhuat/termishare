@@ -4,8 +4,6 @@
 
  :dependencies
  [[reagent "1.1.0"]
-  [org.clojure/core.match "1.0.0"]
-  [org.clojure/core.async "1.3.618"]
   [lambdaisland/uri "1.11.86"]
   [cider/cider-nrepl "0.24.0"]]
 
@@ -14,6 +12,6 @@
  {:app
   {:target           :browser
    :modules          {:main {:init-fn termishare.main/init}}
-   :closure-defines  {termishare.env/API_URL #shadow/env ["API_URL" :default "http://localhost:3000"]}
+   :closure-defines  {termishare.env/API_URL #shadow/env ["SERVER_URL" :default "http://localhost:3000"]}
    :compiler-options {:infer-externs      :auto
                       :output-feature-set :es6}}}}

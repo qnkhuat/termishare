@@ -6,7 +6,7 @@ import (
 )
 
 func main() {
-	logging.Config(".log", "TERMISHARE: ")
+	logging.Config("/tmp/termishare.log", "TERMISHARE: ")
 	ts := termishare.New()
 	ts.Start()
 	return

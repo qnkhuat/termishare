@@ -2,4 +2,4 @@
 
 ;;; The default value of env is defined in shadow-cljs.edn
 
-(goog-define API_URL "default-value")
+(goog-define SERVER_URL "default-value")

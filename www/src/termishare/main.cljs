@@ -2,28 +2,28 @@
   (:require [reagent.dom :as rd]
             [reagent.core :as r]
             [termishare.constants :as const]
+            [termishare.env :refer [SERVER_URL]]
+            [lambdaisland.uri :refer [uri]]
             ["xterm" :as xterm]
-            [termishare.components.mui :refer [Button]]
-            ["xterm-addon-fit" :as xterm-addon-fit]))
+            [termishare.components.mui :refer [Button]]))
 
 ;;; ------------------------------ Utils ------------------------------
 (defonce state
   (r/atom {:ws-conn       nil
            :peer-conn     nil
            :data-channels {}
-           :term          nil
-           :addon-fit     nil
-           :connection-id (str (random-uuid))}))
+           :term          nil}))
 
+(defonce connection-id (str (random-uuid)))
 (defonce text-encoder (js/TextEncoder.))
 (defonce text-decoder (js/TextDecoder. "utf-8"))
-(def terminal-id "terminal")
+(defonce terminal-id "terminal")
 
 (defn send-when-connected
   "Send a message via a websocket connection, Retry if it fails"
   ([ws-conn msg]
    (js/console.log "Registered to send " (clj->js (assoc msg
-                                                         :From (:connection-id @state)
+                                                         :From connection-id
                                                          :To const/TERMISHARE_WEBSOCKET_HOST_ID)))
    (send-when-connected ws-conn msg 0 100))
 
@@ -34,7 +34,7 @@
        (do
         (js/console.log "sending out:" (clj->js msg))
         (.send ws-conn (js/JSON.stringify (clj->js (assoc msg
-                                                          :From (:connection-id @state)
+                                                          :From connection-id
                                                           :To const/TERMISHARE_WEBSOCKET_HOST_ID)))))
        (js/setTimeout (fn [] (send-when-connected ws-conn msg (inc n) limit)) 1))
      (js/console.log "Drop message due reached retry limits: " (clj->js msg)))))
@@ -47,11 +47,11 @@
 
 (defn guess-new-font-size
   [new-cols new-rows target-size]
-  (let [term (:term @state)
-        cur-cols (.-cols term)
-        cur-rows (.-rows term)
-        cur-font-size (.getOption term "fontSize")
-        xterm-size (element-size (-> (js/document.getElementById terminal-id) (.querySelector "xterm-screen")))
+  (let [term           (:term @state)
+        cur-cols       (.-cols term)
+        cur-rows       (.-rows term)
+        cur-font-size  (.getOption term "fontSize")
+        xterm-size     (element-size (-> (js/document.getElementById terminal-id) (.querySelector "xterm-screen")))
         new-hfont-mulp (* (/ cur-cols new-cols) (/ (:width target-size) (:width xterm-size)))
         new-vfont-mulp (* (/ cur-rows new-rows) (/ (:height target-size) (:height xterm-size)))]
     (if (> new-hfont-mulp new-vfont-mulp)
@@ -65,10 +65,10 @@
         data (-> msg .-Data js/JSON.parse)]
 
     ;; only handle messages that are sent by the host to us
-    (js/console.log "received a message:" msg)
-    (when (and (= (:connection-id @state) (.-To msg))
+    (when (and (= connection-id (.-To msg))
                (= const/TERMISHARE_WEBSOCKET_HOST_ID (.-From msg)))
       (condp = (keyword (.-Type msg))
+
         const/TRTCWillYouMarryMe
         (js/console.log "We shouldn't received this question, we should be the one who asks that")
 
@@ -177,15 +177,13 @@
     (fn []
       (let [term      (xterm/Terminal. #js {:cursorBlink  true
                                             :scrollback   1000
-                                            :disableStdin false})
-            addon-fit (xterm-addon-fit/FitAddon.)]
-        (.loadAddon term addon-fit)
-        #_(.fit addon-fit)
+                                            :disableStdin false})]
+
+        ;; Write back to the host
         (.onData term (fn [data] (when-let [channel (-> @state :data-channels :termishare)]
                                    (.send channel (.encode text-encoder data)))))
         (.open term (js/document.getElementById terminal-id))
         (swap! state assoc :term term)
-        (swap! state assoc :addon-fit addon-fit)
 
         ; connect
         #_(ws-connect "ws://localhost:3000/ws")
@@ -197,7 +195,11 @@
       [:<>
        [:div {:id terminal-id :class "w-screen h-screen fixed top-0 left-0"}]
        [Button {:on-click (fn [_e]
-                            (ws-connect "ws://localhost:3000/ws")
+                            (ws-connect (str (assoc (uri "")
+                                                    :scheme (if (= "https" (:scheme (uri SERVER_URL))) "wss" "ws")
+                                                    :host  (:host (uri SERVER_URL))
+                                                    :port  (:port (uri SERVER_URL))
+                                                    :path  "/ws/")))
                             (peer-connect))} "Connect"]
        [Button {:on-click (fn [_e]
                             (send-offer))} "Send offer"]

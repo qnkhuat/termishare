@@ -1,16 +1,18 @@
 package main
 
 import (
+	"flag"
 	"fmt"
+	"log"
+	"net/http"
+	"sync"
+	"time"
+
 	"github.com/gorilla/mux"
 	"github.com/gorilla/websocket"
 	"github.com/qnkhuat/termishare/internal/cfg"
 	"github.com/qnkhuat/termishare/pkg/logging"
 	"github.com/qnkhuat/termishare/pkg/message"
-	"log"
-	"net/http"
-	"sync"
-	"time"
 )
 
 // upgrade an http request to websocket
@@ -121,7 +123,11 @@ func (sv *Server) Start() {
 }
 
 func main() {
-	logging.Config(".log", "SERVER: ")
-	s := New("localhost:3000")
+	var host = flag.String("host", "localhost:3000", "Host address to serve server")
+
+	flag.Parse()
+
+	logging.Config("/tmp/termishare.log", "SERVER: ")
+	s := New(*host)
 	s.Start()
 }
