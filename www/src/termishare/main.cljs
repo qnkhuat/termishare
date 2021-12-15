@@ -195,6 +195,7 @@
       [:<>
        [:div {:id terminal-id :class "w-screen h-screen fixed top-0 left-0"}]
        [Button {:on-click (fn [_e]
+                            (js/console.log "HEY: " SERVER_URL)
                             (ws-connect (str (assoc (uri "")
                                                     :scheme (if (= "https" (:scheme (uri SERVER_URL))) "wss" "ws")
                                                     :host  (:host (uri SERVER_URL))
