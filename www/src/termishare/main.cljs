@@ -84,8 +84,8 @@
         (js/console.error "Unhandeled message type: " (.-Type msg))))))
 
 (defn websocket-onclose
-  [_e]
-  (js/console.log "Websocket closed!")
+  [e]
+  (js/console.log "Websocket closed!: " e)
   (swap! state assoc :ws-conn nil))
 
 (defn ws-connect
@@ -195,13 +195,14 @@
       [:<>
        [:div {:id terminal-id :class "w-screen h-screen fixed top-0 left-0"}]
        [Button {:on-click (fn [_e]
-                            (js/console.log "HEY: " SERVER_URL)
-                            (ws-connect (str (assoc (uri "")
-                                                    :scheme (if (= "https" (:scheme (uri SERVER_URL))) "wss" "ws")
-                                                    :host  (:host (uri SERVER_URL))
-                                                    :port  (:port (uri SERVER_URL))
-                                                    :path  "/ws")))
-                            (peer-connect))} "Connect"]
+                            (let [url (str (assoc (uri "")
+                                                  :scheme (if (= "https" (:scheme (uri SERVER_URL))) "wss" "ws")
+                                                  :host  (:host (uri SERVER_URL))
+                                                  :port  (:port (uri SERVER_URL))
+                                                  :path  "/ws"))]
+                              (js/console.log "Connect to: " url)
+                              (ws-connect url)
+                              (peer-connect)))} "Connect"]
        [Button {:on-click (fn [_e]
                             (send-offer))} "Send offer"]
 

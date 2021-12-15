@@ -64,6 +64,11 @@ func (ts *Termishare) Start() error {
 	}
 	ts.wsConn = wsConn
 
+	wsConn.SetCloseHandler(func(code int, text string) error {
+		log.Printf("WebSocket connection closed with code %d :%s", code, text)
+		return nil
+	})
+
 	go ts.startHandleWsMessages()
 
 	// Send a winsize message when ever terminal change size
