@@ -200,7 +200,7 @@
                                                     :scheme (if (= "https" (:scheme (uri SERVER_URL))) "wss" "ws")
                                                     :host  (:host (uri SERVER_URL))
                                                     :port  (:port (uri SERVER_URL))
-                                                    :path  "/ws/")))
+                                                    :path  "/ws")))
                             (peer-connect))} "Connect"]
        [Button {:on-click (fn [_e]
                             (send-offer))} "Send offer"]

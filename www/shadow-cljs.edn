@@ -12,6 +12,6 @@
  {:app
   {:target           :browser
    :modules          {:main {:init-fn termishare.main/init}}
-   :closure-defines  {termishare.env/API_URL #shadow/env ["SERVER_URL" :default "http://localhost:3000"]}
+   :closure-defines  {termishare.env/SERVER_URL #shadow/env ["SERVER_URL" :default "http://localhost:3000"]}
    :compiler-options {:infer-externs      :auto
                       :output-feature-set :es6}}}}
