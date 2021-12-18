@@ -6,7 +6,9 @@ import (
 	"fmt"
 	"io"
 	"log"
+	"net/url"
 	"os"
+	"strings"
 	"sync"
 	"time"
 
@@ -45,7 +47,7 @@ func New() *Termishare {
 	}
 }
 
-func (ts *Termishare) Start() error {
+func (ts *Termishare) Start(server string) error {
 	// Create a pty to fake the terminal session
 	// TODO: make it have sessionid
 	log.Printf("Starting")
@@ -57,9 +59,14 @@ func (ts *Termishare) Start() error {
 	defer ts.Stop("Bye!")
 
 	// Initiate websocket connection for signaling
-	//url := "ws://localhost:3000/ws"
-	url := "wss://server.termishare.com/ws"
-	wsConn, _, err := websocket.DefaultDialer.Dial(url, nil)
+	scheme := "ws"
+	if strings.HasPrefix(server, "https://") {
+		scheme = "wss"
+	}
+	host := strings.Replace(strings.Replace(server, "http://", "", 1), "https://", "", 1)
+	url := url.URL{Scheme: scheme, Host: host, Path: fmt.Sprintf("/ws")}
+	log.Printf("Connecting to: %s", url.String())
+	wsConn, _, err := websocket.DefaultDialer.Dial(url.String(), nil)
 	if err != nil {
 		ts.Stop("Failed to connect to websocket server")
 		return err
