@@ -74,7 +74,7 @@ func (ts *Termishare) Start() error {
 
 	// Send a winsize message when ever terminal change size
 	ts.pty.SetWinChangeCB(func(ws *ptyDevice.Winsize) {
-		ts.writeConfig(message.Wrapper{
+		ts.broadcastConfig(message.Wrapper{
 			Type: message.TTermWinsize,
 			Data: message.Winsize{
 				Rows: ws.Rows,
@@ -238,7 +238,7 @@ func (ts *Termishare) writeWebsocket(msg message.Wrapper) error {
 	return nil
 }
 
-func (ts *Termishare) writeConfig(msg message.Wrapper) error {
+func (ts *Termishare) broadcastConfig(msg message.Wrapper) error {
 	msg.From = cfg.TERMISHARE_WEBRTC_DATA_CHANNEL
 	payload, err := json.Marshal(msg)
 	if err != nil {
@@ -246,22 +246,26 @@ func (ts *Termishare) writeConfig(msg message.Wrapper) error {
 		return err
 	}
 
+	ts.lock.RLock()
+	defer ts.lock.RUnlock()
 	for ID, client := range ts.clients {
 		//go func(ID string, client *Client) {
 		if client.configChannel != nil {
 			err = client.configChannel.Send(payload)
 			if err != nil {
-				log.Printf("Failed to send config to client: %s", ID)
+				log.Printf("Failed to send config to client: %s :%s", ID, err)
 			}
 		}
 		//}(ID, client)
 	}
-
-	return fmt.Errorf("Config channel not found")
+	return nil
 }
 
 // Write method to forward terminal changes over webrtc
 func (ts *Termishare) Write(data []byte) (int, error) {
+	ts.lock.RLock()
+	defer ts.lock.RUnlock()
+
 	for ID, client := range ts.clients {
 		//go func(ID string, client *Client) {
 		if client.termishareChannel != nil {
@@ -281,10 +285,12 @@ func (ts *Termishare) removeClient(ID string) {
 		defer ts.lock.Unlock()
 		if client.configChannel != nil {
 			client.configChannel.Close()
+			client.configChannel = nil
 		}
 
 		if client.termishareChannel != nil {
 			client.termishareChannel.Close()
+			client.termishareChannel = nil
 		}
 
 		if client.conn != nil {
@@ -320,8 +326,8 @@ func (ts *Termishare) newClient(ID string) (*Client, error) {
 		log.Printf("Peer connection state has changed: %s", s.String())
 		switch s {
 		case webrtc.PeerConnectionStateConnected:
-			time.AfterFunc(500*time.Millisecond, func() {
-
+			//time.AfterFunc(500*time.Millisecond,
+			go func() {
 				ts.pty.Refresh()
 				ws, err := pty.GetWinsize(0)
 				if err != nil {
@@ -331,18 +337,27 @@ func (ts *Termishare) newClient(ID string) (*Client, error) {
 
 				// retry send winsize message until client get it
 				for {
-					err = ts.writeConfig(message.Wrapper{
+					msg := message.Wrapper{
 						To:   ID,
 						Type: message.TTermWinsize,
 						Data: message.Winsize{
 							Rows: ws.Rows,
-							Cols: ws.Cols}})
-					if err == nil {
-						break
+							Cols: ws.Cols}}
+
+					payload, err := json.Marshal(msg)
+					client := ts.clients[ID]
+					if client.configChannel != nil {
+						err = client.configChannel.Send(payload)
+						if err == nil {
+							break
+						}
+						log.Printf("Failed to send config: %s", err)
+					} else {
+						log.Printf("Config channel not found, retrying")
+						time.Sleep(100 * time.Millisecond)
 					}
-					time.Sleep(250 * time.Millisecond)
 				}
-			})
+			}()
 
 		case webrtc.PeerConnectionStateClosed, webrtc.PeerConnectionStateDisconnected:
 			log.Printf("Removing client: %s", ID)

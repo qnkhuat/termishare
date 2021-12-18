@@ -92,7 +92,6 @@ func (sv *Server) WShandler(w http.ResponseWriter, r *http.Request) {
 		// Broadcast the message to everyone
 		for _, c := range sv.conns {
 			if c != conn {
-				log.Printf("Sent a message: %v", msg)
 				c.WriteJSON(msg)
 			}
 		}
