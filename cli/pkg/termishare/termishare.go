@@ -48,6 +48,7 @@ func New() *Termishare {
 func (ts *Termishare) Start() error {
 	// Create a pty to fake the terminal session
 	// TODO: make it have sessionid
+	log.Printf("Starting")
 	envVars := []string{fmt.Sprintf("%s=%s", cfg.TERMISHARE_ENVKEY_SESSIONID, "ngockq")}
 	ts.pty.StartShell(envVars)
 	fmt.Printf("Press Enter to continue!")
