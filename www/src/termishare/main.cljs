@@ -28,11 +28,15 @@
 
 (defn send-when-connected
   "Send a message via a websocket connection, Add to a queue if it's not connected
-   The msg in queue will be sent when the socket is open"
+  The msg in queue will be sent when the socket is open"
   [ws-conn msg]
   (if (= (.-readyState ws-conn) 1)
-    (.send ws-conn (js/JSON.stringify (clj->js (msg-with-info msg))))
-    (swap! msg-queue conj msg)))
+    (do
+     (js/console.log "sending msg:" (clj->js msg))
+     (.send ws-conn (js/JSON.stringify (clj->js (msg-with-info msg)))))
+    (do
+     (js/console.log "Stacking msg: " (clj->js msg))
+     (swap! msg-queue conj msg))))
 
 (defn element-size
   [el]
@@ -91,10 +95,14 @@
   (when-not (:ws-conn @state)
     (let [conn (js/WebSocket. url)]
       (set! (.-onopen conn) (fn [_e]
-                              (for [msg @msg-queue]
-                                (.send conn (js/JSON.stringify (clj->js (msg-with-info msg)))))
+                              (js/console.log "Websocket Connected")
+                              (js/console.log "msg in queue:" (clj->js @msg-queue))
+                              (doall (map (fn [msg]
+                                            (js/console.log "sending :" (clj->js msg))
+                                            (.send conn (js/JSON.stringify (clj->js (msg-with-info msg)))))
+                                          @msg-queue))
                               (reset! msg-queue [])
-                              (js/console.log "Websocket Connected")))
+                              ))
       (set! (.-onmessage conn) websocket-onmessage)
       (set! (.-onclose conn) websocket-onclose)
       (set! (.-onerror conn) websocket-onclose)

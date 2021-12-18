@@ -57,8 +57,8 @@ func (ts *Termishare) Start() error {
 	defer ts.Stop("Bye!")
 
 	// Initiate websocket connection for signaling
-	url := "ws://localhost:3000/ws"
-	//url := "wss://server.termishare.com/ws"
+	//url := "ws://localhost:3000/ws"
+	url := "wss://server.termishare.com/ws"
 	wsConn, _, err := websocket.DefaultDialer.Dial(url, nil)
 	if err != nil {
 		ts.Stop("Failed to connect to websocket server")
