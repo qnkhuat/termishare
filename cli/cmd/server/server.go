@@ -12,7 +12,6 @@ import (
 	"github.com/gorilla/websocket"
 	"github.com/qnkhuat/termishare/internal/cfg"
 	"github.com/qnkhuat/termishare/pkg/logging"
-	"github.com/qnkhuat/termishare/pkg/message"
 )
 
 // upgrade an http request to websocket
@@ -80,8 +79,8 @@ func (sv *Server) WShandler(w http.ResponseWriter, r *http.Request) {
 	log.Printf("New connection - %d", len(sv.conns))
 
 	for {
-		msg := message.Wrapper{}
-		err := conn.ReadJSON(&msg)
+		//msg := message.Wrapper{}
+		msgType, msg, err := conn.ReadMessage()
 		if err != nil {
 			// TODO: need cleaner way to close it
 			log.Printf("Failed to read message: %s. Closing", err)
@@ -92,7 +91,7 @@ func (sv *Server) WShandler(w http.ResponseWriter, r *http.Request) {
 		// Broadcast the message to everyone
 		for _, c := range sv.conns {
 			if c != conn {
-				c.WriteJSON(msg)
+				c.WriteMessage(msgType, msg)
 			}
 		}
 	}
@@ -120,6 +119,7 @@ func (sv *Server) Start() {
 	if err != nil {
 		log.Printf("Failed to start server: %s", err)
 	}
+	log.Printf("Stop!")
 }
 
 func main() {
