@@ -9,35 +9,34 @@
 
 ;;; ------------------------------ Utils ------------------------------
 (defonce state
-  (r/atom {:ws-conn       nil
-           :peer-conn     nil
-           :data-channels {}
-           :term          nil}))
+  (r/atom {:ws-conn   nil
+           :peer-conn nil
+           :term      nil}))
 
+;; msg queue to stack messages when web-socket is not connected
+(defonce msg-queue (atom []))
 (defonce connection-id (str (random-uuid)))
 (defonce text-encoder (js/TextEncoder.))
 (defonce text-decoder (js/TextDecoder. "utf-8"))
 (defonce terminal-id "terminal")
 
-(defn send-when-connected
-  "Send a message via a websocket connection, Retry if it fails"
-  ([ws-conn msg]
-   (js/console.log "Registered to send " (clj->js (assoc msg
-                                                         :From connection-id
-                                                         :To const/TERMISHARE_WEBSOCKET_HOST_ID)))
-   (send-when-connected ws-conn msg 0 100))
+(defn msg-with-info
+  [msg]
+  (assoc msg
+         :From connection-id
+         :To const/TERMISHARE_WEBSOCKET_HOST_ID))
 
-  ([ws-conn msg n limit]
-   (if (< n limit)
-     (if (= (.-readyState ws-conn) 1)
-       ;; TODO a better way to handle ID
-       (do
-        (js/console.log "sending out:" (clj->js msg))
-        (.send ws-conn (js/JSON.stringify (clj->js (assoc msg
-                                                          :From connection-id
-                                                          :To const/TERMISHARE_WEBSOCKET_HOST_ID)))))
-       (js/setTimeout (fn [] (send-when-connected ws-conn msg (inc n) limit)) 1))
-     (js/console.log "Drop message due reached retry limits: " (clj->js msg)))))
+(defn send-when-connected
+  "Send a message via a websocket connection, Add to a queue if it's not connected"
+  [ws-conn msg]
+  (if (= (.-readyState ws-conn) 1)
+    (do
+     (when @msg-queue
+       (for [msg @msg-queue]
+         (.send ws-conn (js/JSON.stringify (clj->js (msg-with-info msg)))))
+       (reset! msg-queue []))
+     (.send ws-conn (js/JSON.stringify (clj->js (msg-with-info msg)))))
+    (swap! msg-queue conj msg)))
 
 (defn element-size
   [el]
@@ -67,6 +66,7 @@
     ;; only handle messages that are sent by the host to us
     (when (and (= connection-id (.-To msg))
                (= const/TERMISHARE_WEBSOCKET_HOST_ID (.-From msg)))
+
       (condp = (keyword (.-Type msg))
 
         const/TRTCWillYouMarryMe
@@ -91,6 +91,7 @@
 (defn ws-connect
   "Connect to websocket server"
   [url]
+  (js/console.log "websocket connect")
   (when-not (:ws-conn @state)
     (let [conn (js/WebSocket. url)]
       (set! (.-onopen conn) (fn [_e] (js/console.log "Websocket Connected")))
@@ -141,22 +142,26 @@
 
 (defn peer-connect
   []
+  (js/console.log "peer connect")
   (let [conn               (js/RTCPeerConnection. ice-candidate-config)
         termishare-channel (.createDataChannel conn (str const/TERMISHARE_WEBRTC_DATA_CHANNEL))
         config-channel     (.createDataChannel conn (str const/TERMISHARE_WEBRTC_CONFIG_CHANNEL))]
-    (set! (.-onconnectionstatechange conn) (fn [e] (js/console.log "Peer connection state change: " (clj->js e))))
+    ;; TODO : close websocket connection when peer is connected?
+    (set! (.-onconnectionstatechange conn) (fn [e] (js/console.log "Peer connection state change: " (.. e -target -connectionState))))
     (set! (.-onicecandidate conn) rtc-onicecandidate)
     (set! (.-ondatachannel conn) rtc-ondatachannel)
     (set! (.-binaryType termishare-channel) "arraybuffer")
     (set! (.-binaryType config-channel) "arraybuffer")
     (set! (.-onmessage termishare-channel) rtc-on-termishare-channel)
     (set! (.-onmessage config-channel) rtc-on-config-channel)
-    (swap! state assoc-in [:data-channels :termishare] termishare-channel)
-    (swap! state assoc-in [:data-channels :config] config-channel)
+    ;; Write back to the host
+    (.onData (:term @state)
+             (fn [data] (.send termishare-channel (.encode text-encoder data))))
     (swap! state assoc :peer-conn conn)))
 
 (defn send-offer
   []
+  (js/console.log "Send offer")
   (-> (:peer-conn @state)
       .createOffer
       (.then (fn [offer]
@@ -165,6 +170,16 @@
                                                        :Data (js/JSON.stringify offer)})))
       (.catch (fn [e]
                 (js/console.log "Failed to send offer " e)))))
+
+(defn connect
+  []
+  (ws-connect (str (assoc (uri "")
+                          :scheme (if (= "https" (:scheme (uri SERVER_URL))) "wss" "ws")
+                          :host  (:host (uri SERVER_URL))
+                          :port  (:port (uri SERVER_URL))
+                          :path  "/ws")))
+  (peer-connect)
+  (send-offer))
 
 
 ;;; ------------------------------ Component ------------------------------
@@ -179,34 +194,14 @@
                                             :scrollback   1000
                                             :disableStdin false})]
 
-        ;; Write back to the host
-        (.onData term (fn [data] (when-let [channel (-> @state :data-channels :termishare)]
-                                   (.send channel (.encode text-encoder data)))))
         (.open term (js/document.getElementById terminal-id))
         (swap! state assoc :term term)
-
-        ; connect
-        #_(ws-connect "ws://localhost:3000/ws")
-        #_(peer-connect)
-        #_(send-offer)))
+        (connect)))
 
     :reagent-render
     (fn []
       [:<>
-       [:div {:id terminal-id :class "w-screen h-screen fixed top-0 left-0"}]
-       [Button {:on-click (fn [_e]
-                            (let [url (str (assoc (uri "")
-                                                  :scheme (if (= "https" (:scheme (uri SERVER_URL))) "wss" "ws")
-                                                  :host  (:host (uri SERVER_URL))
-                                                  :port  (:port (uri SERVER_URL))
-                                                  :path  "/ws"))]
-                              (js/console.log "Connect to: " url)
-                              (ws-connect url)
-                              (peer-connect)))} "Connect"]
-       [Button {:on-click (fn [_e]
-                            (send-offer))} "Send offer"]
-
-       ])}))
+       [:div {:id terminal-id :class "w-screen h-screen fixed top-0 left-0"}]])}))
 
 (defn init []
   (rd/render
