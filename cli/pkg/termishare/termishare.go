@@ -174,6 +174,7 @@ func (ts *Termishare) startHandleWsMessages() error {
 
 func (ts *Termishare) handleWebSocketMessage(msg message.Wrapper) error {
 
+	log.Printf("Got message: %v", msg)
 	switch msgType := msg.Type; msgType {
 	// offer
 	case message.TRTCWillYouMarryMe:

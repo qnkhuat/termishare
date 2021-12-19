@@ -59,6 +59,7 @@
   (let [msg  (-> e .-data js/JSON.parse)
         data (-> msg .-Data js/JSON.parse)]
 
+    (js/console.log "got a message:" (clj->js msg))
     ;; only handle messages that are sent by the host to us
     (when (and (= connection-id (.-To msg))
                (= const/TERMISHARE_WEBSOCKET_HOST_ID (.-From msg)))
@@ -91,6 +92,7 @@
   (when-not (:ws-conn @state)
     (let [conn (js/WebSocket. url)]
       (set! (.-onopen conn) (fn [_e]
+                              (js/console.log "Websocket connected")
                               (doall (map (fn [msg]
                                             (.send conn (js/JSON.stringify (clj->js (msg-with-info msg)))))
                                           @msg-queue))
@@ -161,6 +163,7 @@
 
 (defn send-offer
   []
+  (js/console.log "Send offer")
   (-> (:peer-conn @state)
       .createOffer
       (.then (fn [offer]
