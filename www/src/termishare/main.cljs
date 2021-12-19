@@ -101,8 +101,7 @@
       (swap! state assoc :ws-conn conn))))
 
 ;;; ------------------------------ WebRTC ------------------------------
-(def ice-candidate-config (clj->js {:iceServers [{:urls ["stun:stun1.l.google.com:19302"
-                                                         "stun:stun2.l.google.com:19302"]}]
+(def ice-candidate-config (clj->js {:iceServers [{:urls ["stun:stun.l.google.com:19302"]}]
                                     :iceCandidatePoolSize 10}))
 
 (defn rtc-onicecandidate
