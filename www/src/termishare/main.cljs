@@ -20,19 +20,23 @@
 (defonce text-decoder (js/TextDecoder. "utf-8"))
 (defonce terminal-id "terminal")
 
-(defn msg-with-info
+(defn websocket-send-msg
   [msg]
-  (assoc msg
-         :From connection-id
-         :To const/TERMISHARE_WEBSOCKET_HOST_ID))
+  (js/console.log "Sending a message:" (clj->js msg))
+  (.send (:ws-con @state) (-> msg
+                              (assoc
+                               :From connection-id
+                               :To const/TERMISHARE_WEBSOCKET_HOST_ID)
+                              clj->js
+                              js/JSON.stringify)))
 
 (defn send-when-connected
   "Send a message via a websocket connection, Add to a queue if it's not connected
   The msg in queue will be sent when the socket is open"
   [ws-conn msg]
   (if (= (.-readyState ws-conn) 1)
-     (.send ws-conn (js/JSON.stringify (clj->js (msg-with-info msg))))
-     (swap! msg-queue conj msg)))
+    (websocket-send-msg msg)
+    (swap! msg-queue conj msg)))
 
 (defn element-size
   [el]
@@ -93,8 +97,7 @@
     (let [conn (js/WebSocket. url)]
       (set! (.-onopen conn) (fn [_e]
                               (js/console.log "Websocket connected")
-                              (doall (map (fn [msg]
-                                            (.send conn (js/JSON.stringify (clj->js (msg-with-info msg)))))
+                              (doall (map (fn [msg] (websocket-send-msg msg))
                                           @msg-queue))
                               (reset! msg-queue [])))
       (set! (.-onmessage conn) websocket-onmessage)
