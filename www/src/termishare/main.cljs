@@ -23,7 +23,7 @@
 (defn websocket-send-msg
   [msg]
   (js/console.log "Sending a message:" (clj->js msg))
-  (.send (:ws-con @state) (-> msg
+  (.send (:ws-conn @state) (-> msg
                               (assoc
                                :From connection-id
                                :To const/TERMISHARE_WEBSOCKET_HOST_ID)
