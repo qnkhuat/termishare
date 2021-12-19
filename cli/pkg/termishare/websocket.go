@@ -1,4 +1,3 @@
-// DEPRECATED
 package termishare
 
 import (
@@ -11,7 +10,7 @@ import (
 
 // An extension of websocket with go channels
 type WebSocket struct {
-	conn           *websocket.Conn
+	*websocket.Conn
 	In             chan message.Wrapper
 	Out            chan message.Wrapper
 	lastActiveTime time.Time
@@ -19,12 +18,13 @@ type WebSocket struct {
 
 func NewWebSocketConnection(url string) (*WebSocket, error) {
 	conn, _, err := websocket.DefaultDialer.Dial(url, nil)
+
 	if err != nil {
 		return nil, err
 	}
 
 	return &WebSocket{
-		conn: conn,
+		Conn: conn,
 		In:   make(chan message.Wrapper, cfg.TERMISHARE_WEBSOCKET_CHANNEL_SIZE),
 		Out:  make(chan message.Wrapper, cfg.TERMISHARE_WEBSOCKET_CHANNEL_SIZE),
 	}, nil
@@ -38,7 +38,7 @@ func (ws *WebSocket) Start() {
 			msg, ok := <-ws.Out
 			ws.lastActiveTime = time.Now()
 			if ok {
-				err := ws.conn.WriteJSON(msg)
+				err := ws.WriteJSON(msg)
 				if err != nil {
 					log.Printf("Failed to boardcast to. wsosing connection")
 					ws.Stop()
@@ -55,7 +55,7 @@ func (ws *WebSocket) Start() {
 	// Send message coroutine
 	for {
 		msg := message.Wrapper{}
-		err := ws.conn.ReadJSON(&msg)
+		err := ws.ReadJSON(&msg)
 		if err == nil {
 			ws.In <- msg // Will be handled in Room
 		} else {
@@ -69,7 +69,7 @@ func (ws *WebSocket) Start() {
 // Gracefully close websocket connection
 func (ws *WebSocket) Stop() {
 	log.Printf("Closing client")
-	ws.conn.WriteControl(websocket.CloseMessage, []byte{}, time.Time{})
+	ws.WriteControl(websocket.CloseMessage, []byte{}, time.Time{})
 	time.Sleep(1 * time.Second) // give client sometimes to receive the control message
-	ws.conn.Close()
+	ws.Close()
 }

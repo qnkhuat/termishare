@@ -34,7 +34,7 @@ type Termishare struct {
 	pty *pty.Pty
 
 	// Used for singnaling
-	wsConn *websocket.Conn
+	wsConn *WebSocket
 
 	clients map[string]*Client
 	lock    sync.RWMutex
@@ -66,12 +66,14 @@ func (ts *Termishare) Start(server string) error {
 	host := strings.Replace(strings.Replace(server, "http://", "", 1), "https://", "", 1)
 	url := url.URL{Scheme: scheme, Host: host, Path: fmt.Sprintf("/ws")}
 	log.Printf("Connecting to: %s", url.String())
-	wsConn, _, err := websocket.DefaultDialer.Dial(url.String(), nil)
+	wsConn, err := NewWebSocketConnection(url.String())
 	if err != nil {
 		ts.Stop("Failed to connect to websocket server")
 		return err
 	}
+
 	ts.wsConn = wsConn
+	go wsConn.Start()
 
 	wsConn.SetCloseHandler(func(code int, text string) error {
 		log.Printf("WebSocket connection closed with code %d :%s", code, text)
@@ -130,16 +132,6 @@ func (ts *Termishare) Stop(msg string) {
 
 // ------------------------------ WebSocket ------------------------------
 
-func (ts *Termishare) ConnectWs(url string) error {
-	conn, _, err := websocket.DefaultDialer.Dial(url, nil)
-	if err != nil {
-		ts.Stop(fmt.Sprintf("Failed to connect to websocket server: %s", err))
-		return err
-	}
-	ts.wsConn = conn
-	return nil
-}
-
 // Blocking call to connect to a websocket server for signaling
 func (ts *Termishare) startHandleWsMessages() error {
 	if ts.wsConn == nil {
@@ -148,11 +140,10 @@ func (ts *Termishare) startHandleWsMessages() error {
 	}
 
 	for {
-		msg := message.Wrapper{}
-		err := ts.wsConn.ReadJSON(&msg)
-		if err != nil {
-			log.Printf("Failed to read websocket message: %s", err)
-			return err
+		msg, ok := <-ts.wsConn.In
+		if !ok {
+			log.Printf("Failed to read websocket message")
+			return fmt.Errorf("Failed to read message from websocket")
 		}
 		log.Printf("Got a message: %v", msg)
 
@@ -162,14 +153,12 @@ func (ts *Termishare) startHandleWsMessages() error {
 			continue
 		}
 
-		err = ts.handleWebSocketMessage(msg)
+		err := ts.handleWebSocketMessage(msg)
 		if err != nil {
 			log.Printf("Failed to handle message: %v, with error: %s", msg, err)
 			return err
 		}
-
 	}
-
 }
 
 func (ts *Termishare) handleWebSocketMessage(msg message.Wrapper) error {
@@ -239,11 +228,7 @@ func (ts *Termishare) writeWebsocket(msg message.Wrapper) error {
 	if ts.wsConn == nil {
 		return fmt.Errorf("Websocket not connected")
 	}
-	err := ts.wsConn.WriteJSON(msg)
-	if err != nil {
-		log.Printf("Failed to boardcast to websocket connection: %s", err)
-		return err
-	}
+	ts.wsConn.Out <- msg
 	return nil
 }
 
