@@ -34,7 +34,7 @@
   "Send a message via a websocket connection, Add to a queue if it's not connected
   The msg in queue will be sent when the socket is open"
   [ws-conn msg]
-  (if (= (.-readyState ws-conn) 1)
+  (if (and ws-conn (= (.-readyState ws-conn) 1))
     (websocket-send-msg msg)
     (swap! msg-queue conj msg)))
 
