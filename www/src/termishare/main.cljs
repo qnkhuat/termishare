@@ -31,12 +31,8 @@
   The msg in queue will be sent when the socket is open"
   [ws-conn msg]
   (if (= (.-readyState ws-conn) 1)
-    (do
-     (js/console.log "sending msg:" (clj->js msg))
-     (.send ws-conn (js/JSON.stringify (clj->js (msg-with-info msg)))))
-    (do
-     (js/console.log "Stacking msg: " (clj->js msg))
-     (swap! msg-queue conj msg))))
+     (.send ws-conn (js/JSON.stringify (clj->js (msg-with-info msg))))
+     (swap! msg-queue conj msg)))
 
 (defn element-size
   [el]
@@ -50,7 +46,7 @@
         cur-cols       (.-cols term)
         cur-rows       (.-rows term)
         cur-font-size  (.getOption term "fontSize")
-        xterm-size     (element-size (-> (js/document.getElementById terminal-id) (.querySelector "xterm-screen")))
+        xterm-size     (element-size (-> (js/document.getElementById terminal-id) (.querySelector ".xterm-screen")))
         new-hfont-mulp (* (/ cur-cols new-cols) (/ (:width target-size) (:width xterm-size)))
         new-vfont-mulp (* (/ cur-rows new-rows) (/ (:height target-size) (:height xterm-size)))]
     (if (> new-hfont-mulp new-vfont-mulp)
@@ -95,14 +91,10 @@
   (when-not (:ws-conn @state)
     (let [conn (js/WebSocket. url)]
       (set! (.-onopen conn) (fn [_e]
-                              (js/console.log "Websocket Connected")
-                              (js/console.log "msg in queue:" (clj->js @msg-queue))
                               (doall (map (fn [msg]
-                                            (js/console.log "sending :" (clj->js msg))
                                             (.send conn (js/JSON.stringify (clj->js (msg-with-info msg)))))
                                           @msg-queue))
-                              (reset! msg-queue [])
-                              ))
+                              (reset! msg-queue [])))
       (set! (.-onmessage conn) websocket-onmessage)
       (set! (.-onclose conn) websocket-onclose)
       (set! (.-onerror conn) websocket-onclose)
@@ -133,6 +125,13 @@
   (let [data (-> e .-data js/Uint8Array.)]
     (.writeUtf8 (:term @state) data)))
 
+(defn resize
+  [ws]
+  (when-let [term (:term @state)]
+    (.setOption term "fontSize" (guess-new-font-size (.-cols term) (.-rows term)
+                                                     (element-size (js/document.getElementById terminal-id))))
+    (.resize term (:Cols ws) (:Rows ws))))
+
 (defn rtc-on-config-channel
   [e]
   (let [msg (->> e .-data (.decode text-decoder) js/JSON.parse)
@@ -140,17 +139,11 @@
 
     (condp = (-> msg :Type keyword)
       const/TTermWinsize
-      (let [ws (:Data msg)
-            term (:term @state)]
-        (.setOption term (guess-new-font-size (.-cols term) (.-rows term)
-                                              (element-size (js/document.getElementById terminal-id))))
-        (.resize term (:Cols ws) (:Rows ws)))
-
+        (resize (:Data msg))
       (js/console.log "I don't know you: " (clj->js msg)))))
 
 (defn peer-connect
   []
-  (js/console.log "peer connect")
   (let [conn               (js/RTCPeerConnection. ice-candidate-config)
         termishare-channel (.createDataChannel conn (str const/TERMISHARE_WEBRTC_DATA_CHANNEL))
         config-channel     (.createDataChannel conn (str const/TERMISHARE_WEBRTC_CONFIG_CHANNEL))]
@@ -169,7 +162,6 @@
 
 (defn send-offer
   []
-  (js/console.log "Send offer")
   (-> (:peer-conn @state)
       .createOffer
       (.then (fn [offer]
@@ -201,15 +193,18 @@
       (let [term      (xterm/Terminal. #js {:cursorBlink  true
                                             :scrollback   1000
                                             :disableStdin false})]
-
         (.open term (js/document.getElementById terminal-id))
+        (set! (.-onresize js/window) (fn [_e]
+                                       (when-let [term (:term @state)]
+                                         (resize {:Cols (.-cols term)
+                                                  :Rows (.-rows term)}))))
         (swap! state assoc :term term)
         (connect)))
 
     :reagent-render
     (fn []
       [:<>
-       [:div {:id terminal-id :class "w-screen h-screen fixed top-0 left-0"}]])}))
+       [:div {:id terminal-id :class "w-screen h-screen fixed top-0 left-0 bg-black"}]])}))
 
 (defn init []
   (rd/render
