@@ -107,10 +107,10 @@
 
 ;;; ------------------------------ WebRTC ------------------------------
 (def ice-candidate-config (clj->js {:iceServers [{:urls ["stun:stun.l.google.com:19302"]}
-                                                 {:urls ["turn:104.237.1.191:3478"]
+                                                 {:urls "turn:104.237.1.191:3478"
                                                   :username "termishare"
-                                                  :credential "termishareisfun"}]
-                                    :iceCandidatePoolSize 10}))
+                                                  :credential "termishareisfun"}]}))
+
 
 (defn rtc-onicecandidate
   [e]

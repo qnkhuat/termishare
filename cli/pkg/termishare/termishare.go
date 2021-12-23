@@ -298,9 +298,12 @@ func (ts *Termishare) removeClient(ID string) {
 func (ts *Termishare) newClient(ID string) (*Client, error) {
 	// Initiate peer connection
 	var config = webrtc.Configuration{
-		//ICEServers: []webrtc.ICEServer{{
-		//	URLs: []string{"stun:stun.l.google.com:19302", "stun:stun1.l.google.com:19302"}},
-		//},
+		ICEServers: []webrtc.ICEServer{
+			{URLs: []string{"stun:stun.l.google.com:19302", "stun:stun1.l.google.com:19302"}},
+			{URLs: []string{"turn:104.237.1.191:3478"},
+				Username:   "termishare",
+				Credential: "termishareisfun"},
+		},
 	}
 
 	client := &Client{}
