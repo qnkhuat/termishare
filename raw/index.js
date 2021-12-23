@@ -1,17 +1,17 @@
 const conn = new WebSocket("wss://server.termishare.com/ws");
 
 const pc = new RTCPeerConnection({
-    'iceServers': [{
-        'urls': 'stun:stun.l.google.com:19302',
-    }]
+    'iceServers': [
+      {'urls': 'stun:stun.l.google.com:19302'},
+      {'urls': 'turn:104.237.1.191:3478',
+        'username': 'termishare',
+        'credential': 'termishareisfun'}
+    ]
 });
 
 const sendChannel = pc.createDataChannel("sendChannel");
 sendChannel.onopen = (e) => {
   console.log("data channel open");
-  //setInterval(() => {
-
-  //}, 500);
 }
 
 pc.onconnectionstatechange = (_e) => {
