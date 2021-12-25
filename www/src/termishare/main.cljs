@@ -24,11 +24,11 @@
   [msg]
   (js/console.log "Sending a message:" (clj->js msg))
   (.send (:ws-conn @state) (-> msg
-                              (assoc
-                               :From connection-id
-                               :To const/TERMISHARE_WEBSOCKET_HOST_ID)
-                              clj->js
-                              js/JSON.stringify)))
+                               (assoc
+                                :From connection-id
+                                :To const/TERMISHARE_WEBSOCKET_HOST_ID)
+                               clj->js
+                               js/JSON.stringify)))
 
 (defn send-when-connected
   "Send a message via a websocket connection, Add to a queue if it's not connected
@@ -63,7 +63,6 @@
   (let [msg  (-> e .-data js/JSON.parse)
         data (-> msg .-Data js/JSON.parse)]
 
-    (js/console.log "got a message:" (clj->js msg))
     ;; only handle messages that are sent by the host to us
     (when (and (= connection-id (.-To msg))
                (= const/TERMISHARE_WEBSOCKET_HOST_ID (.-From msg)))
@@ -123,9 +122,7 @@
   [e]
   (let [channel (.-channel e)]
     (set! (.-onclose channel) (fn [] (js/console.log "Channel " (.-label channel) " closed")))
-    (set! (.-onopen channel) (fn [] (js/console.log "Channel " (.-label channel) " opened")))
-    (set! (.-onmessage channel) (fn [e] (js/console.log "Recevied a message from channel: "
-                                                        (.-label channel) " " (.-data e))))))
+    (set! (.-onopen channel) (fn [] (js/console.log "Channel " (.-label channel) " opened")))))
 
 (defn rtc-on-termishare-channel
   [e]
@@ -134,10 +131,14 @@
 
 (defn resize
   [ws]
-  (when-let [term (:term @state)]
-    (.setOption term "fontSize" (guess-new-font-size (.-cols term) (.-rows term)
-                                                     (element-size (js/document.getElementById terminal-id))))
+  (let [term-size (element-size (js/document.getElementById terminal-id))
+        term      (:term @state)]
+    ;; TODO this will not give a perfect sizing at first because
+    ;; intially the terminal have a 80,24 size, and resizing from that will not be optimal
+    (.setOption term "fontSize" (guess-new-font-size (:Cols ws) (:Rows term)
+                                                     term-size))
     (.resize term (:Cols ws) (:Rows ws))))
+
 
 (defn rtc-on-config-channel
   [e]
@@ -147,7 +148,7 @@
 
     (condp = (-> msg :Type keyword)
       const/TTermWinsize
-        (resize (:Data msg))
+      (resize (:Data msg))
       (js/console.log "I don't know you: " (clj->js msg)))))
 
 (defn peer-connect
@@ -170,7 +171,6 @@
 
 (defn send-offer
   []
-  (js/console.log "Send offer")
   (-> (:peer-conn @state)
       .createOffer
       (.then (fn [offer]
@@ -200,7 +200,6 @@
    {:component-did-mount
     (fn []
       (let [term      (xterm/Terminal. #js {:cursorBlink  true
-                                            :scrollback   1000
                                             :disableStdin false})]
         (.open term (js/document.getElementById terminal-id))
         (set! (.-onresize js/window) (fn [_e]
@@ -213,7 +212,8 @@
     :reagent-render
     (fn []
       [:<>
-       [:div {:id terminal-id :class "w-screen h-screen fixed top-0 left-0 bg-black"}]])}))
+       [:div {:id terminal-id :class "w-screen h-screen fixed top-0 left-0 bg-gray-700"}]
+       ])}))
 
 (defn init []
   (rd/render
