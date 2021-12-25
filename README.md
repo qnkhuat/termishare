@@ -19,3 +19,6 @@ It will have 3 components:
 - The server then figure otu the required room and start to exchange signaling messages
 - After the signaling process succeed, the terminal will be streamed to web via peer to peer connection
 
+## TODO
+- figureout do we have to have the exact webrtc config from both participants?
+- Make roomable
