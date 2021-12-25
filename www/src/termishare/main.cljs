@@ -143,6 +143,7 @@
   [e]
   (let [msg (->> e .-data (.decode text-decoder) js/JSON.parse)
         msg (js->clj msg :keywordize-keys true)]
+    (js/console.log "Got a message from config channel: " (clj->js msg))
 
     (condp = (-> msg :Type keyword)
       const/TTermWinsize

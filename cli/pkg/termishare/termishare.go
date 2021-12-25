@@ -335,6 +335,7 @@ func (ts *Termishare) newClient(ID string) (*Client, error) {
 
 				// retry send winsize message until client get it
 				for {
+					log.Printf("sending config")
 					msg := message.Wrapper{
 						To:   ID,
 						Type: message.TTermWinsize,
