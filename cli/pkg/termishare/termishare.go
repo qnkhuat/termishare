@@ -13,6 +13,7 @@ import (
 	"time"
 
 	ptyDevice "github.com/creack/pty"
+	"github.com/google/uuid"
 	"github.com/gorilla/websocket"
 	"github.com/pion/webrtc/v3"
 	"github.com/qnkhuat/termishare/internal/cfg"
@@ -47,14 +48,19 @@ func New() *Termishare {
 	}
 }
 
+func GetClientURL(sessionID string) string {
+	return fmt.Sprintf("%s/%s", cfg.SERVER_CLIENT_URL, sessionID)
+}
+
 func (ts *Termishare) Start(server string) error {
 	// Create a pty to fake the terminal session
-	// TODO: make it have sessionid
-	log.Printf("Starting")
-	envVars := []string{fmt.Sprintf("%s=%s", cfg.TERMISHARE_ENVKEY_SESSIONID, "ngockq")}
+	roomID := uuid.NewString()
+	log.Printf("New session : %s", roomID)
+	envVars := []string{fmt.Sprintf("%s=%s", cfg.TERMISHARE_ENVKEY_SESSIONID, roomID)}
 	ts.pty.StartShell(envVars)
-	fmt.Printf("Press Enter to continue!")
+	fmt.Printf("Press Enter to continue!\n")
 	bufio.NewReader(os.Stdin).ReadString('\n')
+	fmt.Printf("Sharing at: %s\n", GetClientURL(roomID))
 	ts.pty.MakeRaw()
 	defer ts.Stop("Bye!")
 
@@ -64,7 +70,7 @@ func (ts *Termishare) Start(server string) error {
 		scheme = "wss"
 	}
 	host := strings.Replace(strings.Replace(server, "http://", "", 1), "https://", "", 1)
-	url := url.URL{Scheme: scheme, Host: host, Path: fmt.Sprintf("/ws")}
+	url := url.URL{Scheme: scheme, Host: host, Path: fmt.Sprintf("/ws/%s", roomID)}
 	log.Printf("Connecting to: %s", url.String())
 	wsConn, err := NewWebSocketConnection(url.String())
 	if err != nil {
@@ -129,8 +135,6 @@ func (ts *Termishare) Stop(msg string) {
 
 	fmt.Println(msg)
 }
-
-// ------------------------------ WebSocket ------------------------------
 
 // Blocking call to connect to a websocket server for signaling
 func (ts *Termishare) startHandleWsMessages() error {

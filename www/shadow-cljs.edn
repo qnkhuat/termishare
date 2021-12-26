@@ -5,7 +5,9 @@
  :dependencies
  [[reagent "1.1.0"]
   [lambdaisland/uri "1.11.86"]
-  [cider/cider-nrepl "0.24.0"]]
+  [cider/cider-nrepl "0.24.0"]
+  [clj-commons/secretary "1.2.4"]
+  [funcool/bide "1.7.0"]]
 
  :dev-http {8000 "public"}
  :builds

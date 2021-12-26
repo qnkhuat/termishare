@@ -81,7 +81,7 @@ func (ro *Room) addConn(conn *websocket.Conn) {
 		msgType, msg, err := conn.ReadMessage()
 		if err != nil {
 			// TODO: need cleaner way to close it
-			log.Printf("Failed to read message: %s. Closing", err)
+			log.Printf("%s: Failed to read message: %s. Closing", ro, err)
 			conn.Close()
 			return
 		}
@@ -93,7 +93,7 @@ func (ro *Room) addConn(conn *websocket.Conn) {
 
 func (ro *Room) Broadcast(msgType int, msg []byte, sender *websocket.Conn, self bool) {
 	for _, c := range ro.conns {
-		if self && c != sender {
+		if c != sender || (c == sender && self) {
 			c.WriteMessage(msgType, msg)
 		}
 	}

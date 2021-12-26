@@ -20,6 +20,6 @@ It will have 3 components:
 - After the signaling process succeed, the terminal will be streamed to web via peer to peer connection
 
 ## TODO
-- Resize correctly on start
-- figureout do we have to have the exact webrtc config from both participants?
-- Make roomable
+- [x] Make roomable
+- [ ] Figureout do we have to have the exact webrtc config from both participants?
+- [ ] Keep websocket alive
