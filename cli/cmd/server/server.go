@@ -38,16 +38,92 @@ func CORS(next http.Handler) http.Handler {
 	})
 }
 
+type Room struct {
+	ID    string
+	conns []*websocket.Conn
+	lock  sync.Mutex
+}
+
+func NewRoom(ID string) *Room {
+	return &Room{
+		ID: ID,
+	}
+}
+
+func (ro *Room) String() string {
+	return fmt.Sprintf("Room{%s, %d}", ro.ID, len(ro.conns))
+}
+
+func (ro *Room) removeConn(conn *websocket.Conn) {
+	for i, c := range ro.conns {
+		if c == conn {
+			ro.lock.Lock()
+			ro.conns = append(ro.conns[:i], ro.conns[i+1:]...)
+			ro.lock.Unlock()
+			log.Printf("%s - removed a connection", ro)
+		}
+	}
+}
+
+func (ro *Room) addConn(conn *websocket.Conn) {
+	ro.lock.Lock()
+	ro.conns = append(ro.conns, conn)
+	ro.lock.Unlock()
+	conn.SetCloseHandler(func(code int, text string) error {
+		ro.removeConn(conn)
+		return nil
+	})
+
+	log.Printf("%s - new connection", ro)
+
+	// blocking
+	for {
+		msgType, msg, err := conn.ReadMessage()
+		if err != nil {
+			// TODO: need cleaner way to close it
+			log.Printf("Failed to read message: %s. Closing", err)
+			conn.Close()
+			return
+		}
+
+		// Broadcast the message to everyone
+		ro.Broadcast(msgType, msg, conn, false)
+	}
+}
+
+func (ro *Room) Broadcast(msgType int, msg []byte, sender *websocket.Conn, self bool) {
+	for _, c := range ro.conns {
+		if self && c != sender {
+			c.WriteMessage(msgType, msg)
+		}
+	}
+}
+
 type Server struct {
 	addr   string
 	server *http.Server
-	conns  []*websocket.Conn
+	rooms  map[string]*Room
 	lock   sync.Mutex
 }
 
 func New(addr string) *Server {
 	return &Server{
-		addr: addr,
+		addr:  addr,
+		rooms: make(map[string]*Room),
+	}
+}
+
+// Get room if existed, create then returns if not
+func (sv *Server) getRoom(ID string) (*Room, error) {
+	if room, ok := sv.rooms[ID]; ok {
+		return room, fmt.Errorf("Room existed: %s", ID)
+	} else {
+		room := NewRoom(ID)
+		log.Printf("Created a new room with ID: %s", ID)
+		sv.lock.Lock()
+		sv.rooms[ID] = room
+		sv.lock.Unlock()
+		return room, nil
 	}
 }
 
@@ -62,45 +138,10 @@ func (sv *Server) WShandler(w http.ResponseWriter, r *http.Request) {
 		log.Printf("Failed to upgrade connection : %s", err)
 		return
 	}
-	sv.AddConn(conn)
-
-	conn.SetCloseHandler(func(code int, text string) error {
-		for i, c := range sv.conns {
-			if c == conn {
-				log.Printf("Removing a connection due closed")
-				sv.lock.Lock()
-				sv.conns = append(sv.conns[:i], sv.conns[i+1:]...)
-				sv.lock.Unlock()
-			}
-		}
-		return nil
-	})
-
-	log.Printf("New connection - %d", len(sv.conns))
-
-	for {
-		//msg := message.Wrapper{}
-		msgType, msg, err := conn.ReadMessage()
-		if err != nil {
-			// TODO: need cleaner way to close it
-			log.Printf("Failed to read message: %s. Closing", err)
-			conn.Close()
-			return
-		}
-
-		// Broadcast the message to everyone
-		for _, c := range sv.conns {
-			if c != conn {
-				c.WriteMessage(msgType, msg)
-			}
-		}
-	}
-}
-
-func (sv *Server) AddConn(conn *websocket.Conn) {
-	sv.lock.Lock()
-	sv.conns = append(sv.conns, conn)
-	sv.lock.Unlock()
+	vars := mux.Vars(r)
+	roomID := vars["roomID"]
+	room, err := sv.getRoom(roomID)
+	room.addConn(conn)
 }
 
 func (sv *Server) Start() {
@@ -111,7 +152,7 @@ func (sv *Server) Start() {
 	router.Use(CORS)
 
 	router.HandleFunc("/", handleHealth)
-	router.HandleFunc("/ws", sv.WShandler)
+	router.HandleFunc("/ws/{roomID}", sv.WShandler)
 
 	sv.server = &http.Server{Addr: sv.addr, Handler: router}
 	err := sv.server.ListenAndServe()
