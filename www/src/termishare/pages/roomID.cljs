@@ -134,10 +134,9 @@
         term      (:term @state)]
     ;; TODO this will not give a perfect sizing at first because
     ;; intially the terminal have a 80,24 size, and resizing from that will not be optimal
-    (.setOption term "fontSize" (guess-new-font-size (:Cols ws) (:Rows term)
+    (.setOption term "fontSize" (guess-new-font-size (:Cols ws) (:Rows ws)
                                                      term-size))
     (.resize term (:Cols ws) (:Rows ws))))
-
 
 (defn rtc-on-config-channel
   [e]
