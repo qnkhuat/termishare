@@ -327,41 +327,7 @@ func (ts *Termishare) newClient(ID string) (*Client, error) {
 	peerConn.OnConnectionStateChange(func(s webrtc.PeerConnectionState) {
 		log.Printf("Peer connection state has changed: %s", s.String())
 		switch s {
-		case webrtc.PeerConnectionStateConnected:
-			//time.AfterFunc(500*time.Millisecond,
-			go func() {
-				ts.pty.Refresh()
-				ws, err := pty.GetWinsize(0)
-				if err != nil {
-					log.Printf("Failed to get winsize after refresh: %s", err)
-					return
-				}
-
-				// retry send winsize message until client get it
-				for {
-					log.Printf("sending config")
-					msg := message.Wrapper{
-						To:   ID,
-						Type: message.TTermWinsize,
-						Data: message.Winsize{
-							Rows: ws.Rows,
-							Cols: ws.Cols}}
-
-					payload, err := json.Marshal(msg)
-					client := ts.clients[ID]
-					if client.configChannel != nil {
-						err = client.configChannel.Send(payload)
-						if err == nil {
-							break
-						}
-						log.Printf("Failed to send config: %s", err)
-					} else {
-						log.Printf("Config channel not found, retrying")
-						time.Sleep(100 * time.Millisecond)
-					}
-				}
-			}()
-
+		//case webrtc.PeerConnectionStateConnected:
 		case webrtc.PeerConnectionStateClosed, webrtc.PeerConnectionStateDisconnected:
 			log.Printf("Removing client: %s", ID)
 			ts.removeClient(ID)
@@ -381,11 +347,36 @@ func (ts *Termishare) newClient(ID string) (*Client, error) {
 				})
 				ts.clients[ID].termishareChannel = d
 
+				// refresh terminal to sync make termishare send everything currently on terminal
+				ts.pty.Refresh()
+
 			case cfg.TERMISHARE_WEBRTC_CONFIG_CHANNEL:
 				d.OnMessage(func(msg webrtc.DataChannelMessage) {
 					log.Printf("config channel got message: %v", msg)
 				})
 				ts.clients[ID].configChannel = d
+
+				// send config at sync
+				ws, _ := pty.GetWinsize(0)
+				msg := message.Wrapper{
+					To:   ID,
+					Type: message.TTermWinsize,
+					Data: message.Winsize{
+						Rows: ws.Rows,
+						Cols: ws.Cols}}
+
+				payload, err := json.Marshal(msg)
+				client := ts.clients[ID]
+				if client.configChannel != nil {
+					err = client.configChannel.Send(payload)
+					if err == nil {
+						break
+					}
+					log.Printf("Failed to send config: %s", err)
+				} else {
+					log.Printf("Config channel not found, retrying")
+					time.Sleep(100 * time.Millisecond)
+				}
 
 			default:
 				log.Printf("Unhandled data channel with label: %s", d.Label())
