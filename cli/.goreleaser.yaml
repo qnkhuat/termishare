@@ -37,7 +37,9 @@ archives:
       darwin: Darwin
       linux: Linux
       386: i386
-      amd64: x86_64
+      amd64: intel
+      arm64: arm
+
 
     name_template: "{{ .Binary }}_{{ .Version }}_{{ .Os }}_{{ .Arch }}"
 
@@ -48,14 +50,15 @@ archives:
       darwin: Darwin
       linux: Linux
       386: i386
-      amd64: x86_64
+      amd64: intel
+      arm64: arm
 
     name_template: "{{ .Binary }}_{{ .Version }}_{{ .Os }}_{{ .Arch }}"
 
 checksum:
   name_template: 'checksums.txt'
 snapshot:
-  name_template: "{{ incpatch .Version }}-next"
+  name_template: "{{ .Tag }}"
 changelog:
   sort: asc
   filters:
