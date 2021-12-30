@@ -376,24 +376,11 @@ func (ts *Termishare) newClient(ID string) (*Client, error) {
 				// send config at sync
 				ws, _ := pty.GetWinsize(0)
 				msg := message.Wrapper{
-					To:   ID,
 					Type: message.TTermWinsize,
 					Data: message.Winsize{
 						Rows: ws.Rows,
 						Cols: ws.Cols}}
-
-				payload, err := json.Marshal(msg)
-				client := ts.clients[ID]
-				if client.configChannel != nil {
-					err = client.configChannel.Send(payload)
-					if err == nil {
-						break
-					}
-					log.Printf("Failed to send config: %s", err)
-				} else {
-					log.Printf("Config channel not found, retrying")
-					time.Sleep(100 * time.Millisecond)
-				}
+				ts.broadcastConfig(msg)
 
 			default:
 				log.Printf("Unhandled data channel with label: %s", d.Label())
