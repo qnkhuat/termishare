@@ -20,9 +20,6 @@
 (defn on-navigate
   "A function which will be called on each route change."
   [route-name params query]
-  (js/console.log "navigating : " (clj->js  {:route-name (keyword route-name)
-                                             :params     params
-                                             :query      query}))
   (reset! current-route {:route-name (keyword route-name)
                          :params     params
                          :query      query}))

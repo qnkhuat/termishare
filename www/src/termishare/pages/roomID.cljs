@@ -59,9 +59,7 @@
 ;;; ------------------------------ Web Socket ------------------------------
 (defn websocket-onmessage
   [e]
-  (let [msg  (-> e .-data js/JSON.parse)
-        data (-> msg .-Data js/JSON.parse)]
-
+  (let [msg  (-> e .-data js/JSON.parse)]
     ;; only handle messages that are sent by the host to us
     (when (and (= connection-id (.-To msg))
                (= const/TERMISHARE_WEBSOCKET_HOST_ID (.-From msg)))
@@ -72,12 +70,15 @@
         (js/console.log "We shouldn't received this question, we should be the one who asks that")
 
         const/TRTCYes
-        (.setRemoteDescription (:peer-conn @state) data)
+        (.setRemoteDescription (:peer-conn @state) (-> msg .-Data js/JSON.parse))
 
         const/TRTCKiss
-        (->> data
+        (->> (-> msg .-Data js/JSON.parse)
              js/RTCIceCandidate.
              (.addIceCandidate (:peer-conn @state)))
+
+        const/TWSPing
+        nil ; just skip it
 
         :else
         (js/console.error "Unhandeled message type: " (.-Type msg))))))

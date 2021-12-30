@@ -10,7 +10,6 @@
 
 (defn current-page
   []
-  (js/console.log "route-name: " (route/route-name))
   (case (route/route-name)
     :home   [:h3 "Homepage is in progress"]
     :roomID [roomID]

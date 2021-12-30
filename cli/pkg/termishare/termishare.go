@@ -81,8 +81,25 @@ func (ts *Termishare) Start(server string) error {
 	ts.wsConn = wsConn
 	go wsConn.Start()
 
+	// send a ping message to keep websocket alive, doesn't expect to receive anything
+	// This messages is expected to be broadcast to all client's connections so it keeps them alive too
+	go func() {
+		for range time.Tick(5 * time.Second) {
+			payload := message.Wrapper{
+				Type: message.TWSPing,
+				Data: []byte{},
+			}
+			ts.writeWebsocket(payload)
+		}
+	}()
+
+	wsConn.SetPingHandler(func(appData string) error {
+		return wsConn.WriteControl(websocket.PongMessage, []byte{}, time.Time{})
+	})
+
 	wsConn.SetCloseHandler(func(code int, text string) error {
 		log.Printf("WebSocket connection closed with code %d :%s", code, text)
+		ts.Stop("WebSocket connection to server is closed")
 		return nil
 	})
 

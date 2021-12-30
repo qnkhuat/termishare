@@ -7,6 +7,8 @@
 (defonce TRTCKiss :Kiss) ;; Candidate
 (defonce TTermWinsize :Winsize) ;; Candidate
 
+(defonce TWSPing :Ping) ;; Candidate
+
 
 ;; Termishare config
 (defonce TERMISHARE_WEBSOCKET_HOST_ID "host") ;; ID of message sent from the host

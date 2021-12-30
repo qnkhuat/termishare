@@ -12,6 +12,8 @@ const (
 	TRTCKiss           MType = "Kiss"           // Candidate
 
 	TTermWinsize MType = "Winsize" // Update winsize
+
+	TWSPing MType = "Ping"
 )
 
 type Wrapper struct {
