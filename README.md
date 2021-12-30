@@ -21,7 +21,7 @@ It will have 3 components:
 
 ## TODO
 - [x] Make roomable
-- [ ] Keep websocket, peerconnection alive
+- [x] Keep websocket, peerconnection alive
 - [ ] Set up Release
 - [ ] Home page
 - [ ] Message while connecting and disconnected
