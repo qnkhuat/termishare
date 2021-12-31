@@ -24,4 +24,5 @@
                          :params     params
                          :query      query}))
 
-
+(defn redirect! [loc]
+  (set! (.-location js/window) loc))

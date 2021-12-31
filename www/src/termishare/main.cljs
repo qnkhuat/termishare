@@ -2,7 +2,9 @@
   (:require [bide.core :as bide]
             [reagent.dom :as rd]
             [termishare.route :as route]
-            [termishare.pages.roomID :refer [roomID]]))
+            [termishare.pages.roomID :refer [roomID]]
+            [termishare.pages.index :refer [index]]))
+
 
 (defonce router
   (bide/router [["/" :home]
@@ -11,7 +13,7 @@
 (defn current-page
   []
   (case (route/route-name)
-    :home   [:h3 "Homepage is in progress"]
+    :home   [index]
     :roomID [roomID]
     [:h3 "404"]))
 
@@ -25,5 +27,5 @@
   []
   (route-init)
   (rd/render
-   [:div (current-page)]
+   [:<> (current-page)]
    (js/document.getElementById "root")))

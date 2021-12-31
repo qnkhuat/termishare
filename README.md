@@ -7,8 +7,6 @@ It will have 3 components:
 - A webapp - is the webclient where we can use the shared terminal on
 - A server - used as the signaling server to establish the per to peer connection
 
-
-
 ## flow
 - User type `termishare` in terminal
 - It creates a terminal session and establish a websocket connection with the signal server
@@ -27,4 +25,3 @@ It will have 3 components:
 - [ ] Message while connecting and disconnected
 - [ ] Config file so we can do things like - checking status, delete an unwanted client
 - [ ] Figureout do we have to have the exact webrtc config from both participants?
-

@@ -5,7 +5,8 @@
             ["@mui/material/InputLabel" :as MuiInputLabel]
             ["@mui/material/MenuItem" :as MuiMenuItem]
             ["@mui/material/Select" :as MuiSelect]
-            ["@mui/material/Slider" :as MuiSlider]))
+            ["@mui/material/Slider" :as MuiSlider]
+            ["@mui/icons-material/GitHub" :as MuiGitHubIcon]))
 
 (defn -adapt
   [component]
@@ -17,3 +18,4 @@
 (def MenuItem (-adapt MuiMenuItem))
 (def Select (-adapt MuiSelect))
 (def Slider (-adapt MuiSlider))
+(def GitHubIcon (-adapt MuiGitHubIcon))
