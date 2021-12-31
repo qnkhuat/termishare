@@ -39,6 +39,9 @@ type Termishare struct {
 
 	clients map[string]*Client
 	lock    sync.RWMutex
+
+	// config
+	noTurn bool
 }
 
 func New() *Termishare {
@@ -48,7 +51,9 @@ func New() *Termishare {
 	}
 }
 
-func (ts *Termishare) Start(server string, client string) error {
+func (ts *Termishare) Start(server string, client string, noTurn bool) error {
+	ts.noTurn = noTurn
+
 	// Create a pty to fake the terminal session
 	roomID := uuid.NewString()
 	log.Printf("New session : %s", roomID)
@@ -315,13 +320,13 @@ func (ts *Termishare) removeClient(ID string) {
 
 func (ts *Termishare) newClient(ID string) (*Client, error) {
 	// Initiate peer connection
+	ICEServers := cfg.TERMISHARE_ICE_SERVER_STUNS
+	if !ts.noTurn {
+		ICEServers = append(ICEServers, cfg.TERMISHARE_ICE_SERVER_TURNS...)
+	}
+
 	var config = webrtc.Configuration{
-		ICEServers: []webrtc.ICEServer{
-			{URLs: []string{"stun:stun.l.google.com:19302", "stun:stun1.l.google.com:19302"}},
-			{URLs: []string{"turn:104.237.1.191:3478"},
-				Username:   "termishare",
-				Credential: "termishareisfun"},
-		},
+		ICEServers: ICEServers,
 	}
 
 	client := &Client{}
