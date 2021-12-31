@@ -7,9 +7,9 @@ before:
       # you may remove this if you don't need go generate
     - go generate ./...
 builds:
-  - id: termiserver
+  - id: server
     main: ./cmd/server/server.go
-    binary: termiserver
+    binary: server
     goos:
       - linux
       - darwin
@@ -30,16 +30,15 @@ builds:
       - arm64
 
 archives:
-  - id: termiserver
+  - id: server
     builds:
-      - termiserver
+      - server
     replacements:
       darwin: Darwin
       linux: Linux
       386: i386
       amd64: intel
       arm64: arm
-
 
     name_template: "{{ .Binary }}_{{ .Version }}_{{ .Os }}_{{ .Arch }}"
 

@@ -1,27 +1,27 @@
 # termishare
-Terminal sharing via peer to peer connection
+Peer to peer terminal sharing
 
-## How is it gonna work?
-It will have 3 components:
-- A cli app - That sharer can use to share a terminal session
-- A webapp - is the webclient where we can use the shared terminal on
-- A server - used as the signaling server to establish the per to peer connection
+The motivation behind termishare is to provide a safe and fast way to get acesss a remote terminal.
 
-## flow
-- User type `termishare` in terminal
-- It creates a terminal session and establish a websocket connection with the signal server
-- Signalling server then create a virtual room
-- The termishare cli will output an unique link
-- This link can be used to access the terminal via web
-- When user click on the link, it establishes a websocket connection with signalin server
-- The server then figure otu the required room and start to exchange signaling messages
-- After the signaling process succeed, the terminal will be streamed to web via peer to peer connection
+In order to achieve that, termishare uses a combination of WebSocket and WebRTC:
+- WebSocket - is used only for signaling - which is a process to establish WebRTC connection
+- [WebRTC](https://webrtc.org) - the primary connection to stream your terminal to other clients
 
-## TODO
-- [x] Make roomable
-- [x] Keep websocket, peerconnection alive
-- [x] Set up Release
-- [ ] Home page
-- [ ] Message while connecting and disconnected
-- [ ] Config file so we can do things like - checking status, delete an unwanted client
-- [ ] Figureout do we have to have the exact webrtc config from both participants?
+## Getting started
+1. Go to our [release](https://github.com/qnkhuat/termishare/releases) page and get a pre-built binary of `termishare`. Make sure you get the one that match your OS.
+2. Untar the package `tar -xzf termishare_xyz.tar.gz`
+3. (Optional) Move it to `/usr/local/bin` folder so that you could use `termishare` anywhere : `mv termishare /usr/local/bin`
+4. Start sharing with `termishare`
+    - If you don't want to connect to our TURN server, add a flag `-no-turn`
+5. Done 🎉
+
+### Note
+There are chances where a direct peer-to-peer connection can't be established, so I included a TURN server that I created using [CoTURN](https://github.com/coturn/coturn).
+
+If you want to ensure your terminal is not connected to an unknown server, you can:
+- Disable the usage of turn server (with `-no-turn` flag)
+- Creates your own TURN server connect to it by changing in [cfg/termishare.go](cli/internal/cfg/server.go)
+
+## Upcoming
+- [ ] Connect to termishare session via `termishare` itself, instead of web-client
+- [ ] Approval mechanism
