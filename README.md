@@ -22,8 +22,9 @@ It will have 3 components:
 ## TODO
 - [x] Make roomable
 - [x] Keep websocket, peerconnection alive
-- [ ] Set up Release
+- [x] Set up Release
 - [ ] Home page
 - [ ] Message while connecting and disconnected
+- [ ] Config file so we can do things like - checking status, delete an unwanted client
 - [ ] Figureout do we have to have the exact webrtc config from both participants?
 

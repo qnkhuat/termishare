@@ -48,11 +48,7 @@ func New() *Termishare {
 	}
 }
 
-func GetClientURL(sessionID string) string {
-	return fmt.Sprintf("%s/%s", cfg.SERVER_CLIENT_URL, sessionID)
-}
-
-func (ts *Termishare) Start(server string) error {
+func (ts *Termishare) Start(server string, client string) error {
 	// Create a pty to fake the terminal session
 	roomID := uuid.NewString()
 	log.Printf("New session : %s", roomID)
@@ -60,7 +56,8 @@ func (ts *Termishare) Start(server string) error {
 	ts.pty.StartShell(envVars)
 	fmt.Printf("Press Enter to continue!\n")
 	bufio.NewReader(os.Stdin).ReadString('\n')
-	fmt.Printf("Sharing at: %s\n", GetClientURL(roomID))
+
+	fmt.Printf("Sharing at: %s\n", GetClientURL(client, roomID))
 	ts.pty.MakeRaw()
 	defer ts.Stop("Bye!")
 
