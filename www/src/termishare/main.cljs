@@ -2,9 +2,10 @@
   (:require [bide.core :as bide]
             [reagent.dom :as rd]
             [termishare.route :as route]
+            [termishare.components.mui :refer [ThemeProvider]]
+            ["@mui/material/styles" :refer [createTheme]]
             [termishare.pages.roomID :refer [roomID]]
             [termishare.pages.index :refer [index]]))
-
 
 (defonce router
   (bide/router [["/" :home]
@@ -17,6 +18,8 @@
     :roomID [roomID]
     [:h3 "404"]))
 
+(def theme (createTheme (clj->js {:palette {:mode "dark"}})))
+
 (defn route-init
   []
   (bide/start! router {:default     :home
@@ -27,5 +30,6 @@
   []
   (route-init)
   (rd/render
-   [:<> (current-page)]
-   (js/document.getElementById "root")))
+    [ThemeProvider {:theme theme}
+     [:<> (current-page)]]
+    (js/document.getElementById "root")))
