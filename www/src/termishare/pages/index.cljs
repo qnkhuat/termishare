@@ -28,5 +28,4 @@
                           (redirect! (redirect-url @session-input)))} "Join"]]
     [:a {:class "text-white text-center font-bold text-lg sm:text-xl mb-24"
          :href "https://github.com/qnkhuat/termishare"}
-     [GitHubIcon {:className "animate-pulse hover:animate-bounce"}]
-     ]]])
+     [GitHubIcon {:className "animate-pulse hover:animate-bounce" :fontSize "large"}]]]])
