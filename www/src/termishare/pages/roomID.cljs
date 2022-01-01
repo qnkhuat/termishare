@@ -211,5 +211,5 @@
     :reagent-render
     (fn []
       [:<>
-       [:div {:id terminal-id :class "w-screen h-screen fixed top-0 left-0 bg-gray-700"}]
+       [:div {:id terminal-id :class "w-screen h-screen fixed top-0 left-0 bg-black"}]
        ])}))
