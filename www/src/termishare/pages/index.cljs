@@ -1,5 +1,18 @@
 (ns termishare.pages.index
-  (:require [termishare.components.mui :refer [GitHubIcon TextField Button]]))
+  (:require [termishare.components.mui :refer [GitHubIcon TextField Button]]
+            [termishare.route :refer [redirect!]]
+            [termishare.env :refer [TERMISHARE_DOMAIN]]
+            [lambdaisland.uri :refer [uri]]
+            [reagent.core :as r]))
+
+(def session-input (r/atom ""))
+
+(defn redirect-url
+  [session-id]
+  (str (assoc (uri "")
+              :scheme (:scheme (uri TERMISHARE_DOMAIN))
+              :host   (:host (uri TERMISHARE_DOMAIN))
+              :path   (str "/" session-id))))
 
 (defn index
   []
@@ -8,10 +21,12 @@
     [:p  {:class "mb-2 font-bold text-3xl decoration-2 decoration-lime-500 underline decoration-wavy underline-offset-4 hover:underline-offset-8"} "Termishare"]
     [:p "Peer to peer terminal sharing "]
     [:div {:class "flex mt-4 mb-4"}
-     [TextField {:label "Session ID" :variant "filled" :color "success" :className "w-64 sm:w-80 mr-4"}]
-     [Button {:className "border-2 border-lime-500 bg-lime-500 text-white font-bold"}"Join"]]
-    [:a {:class "text-white text-center font-bold text-lg sm:text-xl mb-24
-                "
+     [TextField {:label "Session ID" :variant "filled" :color "success" :className "w-64 sm:w-80 mr-4"
+                 :onChange (fn [e] (reset! session-input (.. e -target -value)))}]
+     [Button {:className "border-2 border-lime-500 bg-lime-500 text-white font-bold"
+              :on-click (fn [_e]
+                          (redirect! (redirect-url @session-input)))} "Join"]]
+    [:a {:class "text-white text-center font-bold text-lg sm:text-xl mb-24"
          :href "https://github.com/qnkhuat/termishare"}
      [GitHubIcon {:className "animate-pulse hover:animate-bounce"}]
      ]]])

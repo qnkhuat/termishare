@@ -1,7 +1,7 @@
 (ns termishare.pages.roomID
   (:require [reagent.core :as r]
             [termishare.constants :as const]
-            [termishare.env :refer [SERVER_URL]]
+            [termishare.env :refer [TERMISHARE_SERVER_URL]]
             [termishare.route :as route]
             [lambdaisland.uri :refer [uri]]
             ["xterm" :as xterm]))
@@ -182,9 +182,9 @@
 (defn connect
   []
   (ws-connect (str (assoc (uri "")
-                          :scheme (if (= "https" (:scheme (uri SERVER_URL))) "wss" "ws")
-                          :host  (:host (uri SERVER_URL))
-                          :port  (:port (uri SERVER_URL))
+                          :scheme (if (= "https" (:scheme (uri TERMISHARE_SERVER_URL))) "wss" "ws")
+                          :host  (:host (uri TERMISHARE_SERVER_URL))
+                          :port  (:port (uri TERMISHARE_SERVER_URL))
                           :path  (str "/ws/" (:roomID (route/params))))))
   (peer-connect)
   (send-offer))
