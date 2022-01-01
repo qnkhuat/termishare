@@ -1,6 +1,8 @@
 # termishare
 Peer to peer terminal sharing
 
+![ezgif com-gif-maker](https://user-images.githubusercontent.com/25661381/147855673-a30dd75e-b7d1-47b9-bdf8-2a6aeaf5df01.gif)
+
 The motivation behind termishare is to provide a safe and fast way to access a remote terminal.
 
 In order to achieve that, termishare uses a combination of WebSocket and WebRTC:
