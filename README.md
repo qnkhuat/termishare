@@ -1,7 +1,7 @@
 # termishare
 Peer to peer terminal sharing
 
-The motivation behind termishare is to provide a safe and fast way to get acesss a remote terminal.
+The motivation behind termishare is to provide a safe and fast way to access a remote terminal.
 
 In order to achieve that, termishare uses a combination of WebSocket and WebRTC:
 - WebSocket - is used only for signaling - which is a process to establish WebRTC connection
