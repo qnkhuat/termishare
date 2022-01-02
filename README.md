@@ -26,4 +26,5 @@ If you want to ensure your terminal is not connected to an unknown server, you c
 
 ## Upcoming
 - [ ] Connect to termishare session via `termishare` itself, instead of web-client
+- [ ] Install via brew/apt
 - [ ] Approval mechanism
