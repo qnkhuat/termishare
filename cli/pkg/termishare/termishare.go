@@ -6,9 +6,7 @@ import (
 	"fmt"
 	"io"
 	"log"
-	"net/url"
 	"os"
-	"strings"
 	"sync"
 	"time"
 
@@ -55,26 +53,20 @@ func (ts *Termishare) Start(server string, client string, noTurn bool) error {
 	ts.noTurn = noTurn
 
 	// Create a pty to fake the terminal session
-	roomID := uuid.NewString()
-	log.Printf("New session : %s", roomID)
-	envVars := []string{fmt.Sprintf("%s=%s", cfg.TERMISHARE_ENVKEY_SESSIONID, roomID)}
+	sessionID := uuid.NewString()
+	log.Printf("New session : %s", sessionID)
+	envVars := []string{fmt.Sprintf("%s=%s", cfg.TERMISHARE_ENVKEY_SESSIONID, sessionID)}
 	ts.pty.StartShell(envVars)
 	fmt.Printf("Press Enter to continue!\n")
 	bufio.NewReader(os.Stdin).ReadString('\n')
 
-	fmt.Printf("Sharing at: %s\n", GetClientURL(client, roomID))
+	fmt.Printf("Sharing at: %s\n", GetClientURL(client, sessionID))
 	ts.pty.MakeRaw()
 	defer ts.Stop("Bye!")
 
-	// Initiate websocket connection for signaling
-	scheme := "ws"
-	if strings.HasPrefix(server, "https://") {
-		scheme = "wss"
-	}
-	host := strings.Replace(strings.Replace(server, "http://", "", 1), "https://", "", 1)
-	url := url.URL{Scheme: scheme, Host: host, Path: fmt.Sprintf("/ws/%s", roomID)}
-	log.Printf("Connecting to: %s", url.String())
-	wsConn, err := NewWebSocketConnection(url.String())
+	wsURL := GetWSURL(server, sessionID)
+	wsConn, err := NewWebSocketConnection(wsURL)
+	log.Printf("Connecting to: %s", wsURL)
 	if err != nil {
 		ts.Stop("Failed to connect to websocket server")
 		return err
@@ -152,6 +144,7 @@ func (ts *Termishare) Stop(msg string) {
 		ts.pty.Restore()
 	}
 
+	log.Printf("Stop: %s", msg)
 	fmt.Println(msg)
 }
 
