@@ -1,21 +1,16 @@
 (ns server.core
-  (:require [ring.adapter.jetty9 :refer [run-jetty send!]]
-            [compojure.core :refer [defroutes]]
+  (:require [ring.adapter.jetty9 :refer [run-jetty send!] :as jetty]
+            [compojure.core :refer [defroutes GET]]
             [ring.middleware.keyword-params :refer [wrap-keyword-params]]
             [ring.middleware.params :refer [wrap-params]]
             [ring.middleware.session :refer [wrap-session]]
             [compojure.route :as route])
   (:gen-class))
 
-; TODO: use https://github.com/jarohen/chord instead of jetty 9 websocket
-
 (defonce connections (atom #{}))
 
-(defroutes routes
-  (route/not-found "Where are you going?"))
-
 (def ws-handler {:on-connect (fn [ws]
-                               (println "New connection")
+                               (println "New connection : " ws)
                                (swap! connections conj ws))
 
                  :on-error (fn [ws _e]
@@ -29,7 +24,12 @@
                             (println "Broadcasted to " (-> @connections count dec))
                             (doall (map #(send! % text-message) (filter #(not= ws %) @connections))))})
 
-(def websocket-routes {"/ws" ws-handler})
+(defroutes routes
+  (GET "/ws/:id" [] (fn [req]
+                      (println "id: " (:id (:params req)))
+                      (if (jetty/ws-upgrade-request? req)
+                        (jetty/ws-upgrade-response ws-handler))))
+  (route/not-found "Where are you going?"))
 
 (def app
   (-> #'routes
@@ -37,8 +37,12 @@
       wrap-params
       wrap-session))
 
+;(defn app [req]
+;  (if (jetty/ws-upgrade-request? req)
+;    (jetty/ws-upgrade-response ws-handler)))
+
+
 (defn -main [& _args]
-  (let [port (Integer/parseInt (or (System/getenv "COLAB_PORT") "3000"))]
-    (printf "Serving at ::%d\n" port)(flush)
-    (run-jetty app {:port port
-                    :websockets websocket-routes})))
+  (let [port (Integer/parseInt (or (System/getenv "TERMISHARE_PORT") "3000"))]
+    (println "Serving at localhost:" port)
+    (run-jetty app {:port port})))
