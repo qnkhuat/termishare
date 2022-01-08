@@ -55,6 +55,10 @@ func (rc *RemoteClient) Connect(server string, sessionID string) {
 	}
 	go wsConn.Start()
 
+	// will stop stdin from piping to stdout
+	rc.pty.MakeRaw()
+	defer rc.pty.Restore()
+
 	rc.wsConn = wsConn
 
 	// Initiate peer connection
@@ -70,10 +74,6 @@ func (rc *RemoteClient) Connect(server string, sessionID string) {
 	if err != nil {
 		log.Printf("Failed to create peer connetion : %s", err)
 	}
-
-	//_, w, err := os.Pipe()
-	// kill the stdout
-	os.Stdin = nil
 
 	rc.peerConn = peerConn
 
@@ -148,7 +148,7 @@ func (rc *RemoteClient) Connect(server string, sessionID string) {
 	rc.writeWebsocket(payload)
 	log.Printf("need to send an offer: %s", string(offerByte))
 
-	// scan stdin and send to the host
+	// send what client type to the host
 	go io.Copy(rc, os.Stdin)
 
 	// handle websocket messages
@@ -226,22 +226,6 @@ func (rc *RemoteClient) Stop(msg string) {
 
 	fmt.Println(msg)
 }
-
-//func (rc *RemoteClient) Stop(msg string) {
-//	log.Printf("Stop: %s", msg)
-//
-//	if rc.wsConn != nil {
-//		rc.wsConn.WriteControl(websocket.CloseMessage, []byte{}, time.Time{})
-//		rc.wsConn.Close()
-//	}
-//
-//	if rc.pty != nil {
-//		rc.pty.Stop()
-//		rc.pty.Restore()
-//	}
-//
-//	fmt.Println(msg)
-//}
 
 func (rc *RemoteClient) Write(data []byte) (int, error) {
 	if rc.dataChannel != nil {
