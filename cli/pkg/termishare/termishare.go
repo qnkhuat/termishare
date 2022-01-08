@@ -49,18 +49,18 @@ func New() *Termishare {
 	}
 }
 
-func (ts *Termishare) Start(server string, client string, noTurn bool) error {
+func (ts *Termishare) Start(server string, noTurn bool) error {
 	ts.noTurn = noTurn
 
 	// Create a pty to fake the terminal session
 	sessionID := uuid.NewString()
 	log.Printf("New session : %s", sessionID)
 	envVars := []string{fmt.Sprintf("%s=%s", cfg.TERMISHARE_ENVKEY_SESSIONID, sessionID)}
-	ts.pty.StartShell(envVars)
+	ts.pty.StartDefaultShell(envVars)
 	fmt.Printf("Press Enter to continue!\n")
 	bufio.NewReader(os.Stdin).ReadString('\n')
 
-	fmt.Printf("Sharing at: %s\n", GetClientURL(client, sessionID))
+	fmt.Printf("Sharing at: %s\n", GetClientURL(server, sessionID))
 	ts.pty.MakeRaw()
 	defer ts.Stop("Bye!")
 
@@ -161,7 +161,6 @@ func (ts *Termishare) startHandleWsMessages() error {
 			log.Printf("Failed to read websocket message")
 			return fmt.Errorf("Failed to read message from websocket")
 		}
-		log.Printf("Got a message: %v", msg)
 
 		// skip messages that are not send to the host
 		if msg.To != cfg.TERMISHARE_WEBSOCKET_HOST_ID {
@@ -172,14 +171,13 @@ func (ts *Termishare) startHandleWsMessages() error {
 		err := ts.handleWebSocketMessage(msg)
 		if err != nil {
 			log.Printf("Failed to handle message: %v, with error: %s", msg, err)
-			return err
+			continue
 		}
 	}
 }
 
 func (ts *Termishare) handleWebSocketMessage(msg message.Wrapper) error {
 
-	log.Printf("Got message: %v", msg)
 	switch msgType := msg.Type; msgType {
 	// offer
 	case message.TRTCWillYouMarryMe:
@@ -193,6 +191,7 @@ func (ts *Termishare) handleWebSocketMessage(msg message.Wrapper) error {
 		if err := json.Unmarshal([]byte(msg.Data.(string)), &offer); err != nil {
 			return err
 		}
+		log.Printf("Get an offer: %v", (string(msg.Data.(string))))
 
 		if err := client.conn.SetRemoteDescription(offer); err != nil {
 			return fmt.Errorf("Failed to set remote description: %s", err)

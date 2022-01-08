@@ -40,14 +40,22 @@ func (pty *Pty) Read(b []byte) (int, error) {
 	return pty.f.Read(b)
 }
 
-func (pty *Pty) StartShell(envVars []string) error {
+func (pty *Pty) StartDefaultShell(envVars []string) error {
+	// Start a shell that mirror the current shell by reading all
+	// of its environment and shell type
 	shell := os.Getenv("SHELL")
 	if shell == "" {
 		shell = "bash"
 	}
 
-	pty.cmd = exec.Command(shell)
-	pty.cmd.Env = append(os.Environ(), envVars...)
+	envVars = append(os.Environ(), envVars...)
+	pty.execCommand(shell, envVars)
+	return nil
+}
+
+func (pty *Pty) execCommand(command string, envVars []string) error {
+	pty.cmd = exec.Command(command)
+	pty.cmd.Env = envVars
 
 	err := pty.StartCommand()
 	if err != nil {

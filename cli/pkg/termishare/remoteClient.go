@@ -3,13 +3,14 @@
 package termishare
 
 import (
-	"bufio"
 	"encoding/json"
 	"fmt"
+	"io"
 	"log"
 	"os"
 	"time"
 
+	"github.com/google/uuid"
 	"github.com/gorilla/websocket"
 	"github.com/pion/webrtc/v3"
 	"github.com/qnkhuat/termishare/internal/cfg"
@@ -19,8 +20,9 @@ import (
 
 type RemoteClient struct {
 	sessionID string
+	clientID  string
 	// for transferring terminal changes
-	termishareChannel *webrtc.DataChannel
+	dataChannel *webrtc.DataChannel
 
 	// for transferring config like winsize
 	configChannel *webrtc.DataChannel
@@ -34,19 +36,16 @@ type RemoteClient struct {
 
 func NewRemoteClient() *RemoteClient {
 	return &RemoteClient{
-		pty: pty.New()}
+		pty:      pty.New(),
+		clientID: uuid.NewString(),
+	}
 }
 
 func (rc *RemoteClient) Connect(server string, sessionID string) {
+	rc.sessionID = sessionID
 	wsURL := GetWSURL(server, rc.sessionID)
 	fmt.Printf("Connecting to : %s\n", wsURL)
 
-	envVars := []string{fmt.Sprintf("%s=%s", cfg.TERMISHARE_ENVKEY_SESSIONID, rc.sessionID)}
-	rc.pty.StartShell(envVars)
-	fmt.Printf("Press Enter to continue!\n")
-	bufio.NewReader(os.Stdin).ReadString('\n')
-
-	rc.pty.MakeRaw()
 	defer rc.Stop("Bye!")
 
 	wsConn, err := NewWebSocketConnection(wsURL)
@@ -54,24 +53,78 @@ func (rc *RemoteClient) Connect(server string, sessionID string) {
 		log.Printf("Failed to connect to singaling server: %s", err)
 		rc.Stop("Failed to connect to signaling server")
 	}
+	go wsConn.Start()
 
 	rc.wsConn = wsConn
-	// Initiate peer connection
-	ICEServers := cfg.TERMISHARE_ICE_SERVER_STUNS
-	ICEServers = append(ICEServers, cfg.TERMISHARE_ICE_SERVER_TURNS...)
 
-	var config = webrtc.Configuration{
-		ICEServers: ICEServers,
+	// Initiate peer connection
+	iceServers := cfg.TERMISHARE_ICE_SERVER_STUNS
+	iceServers = append(iceServers, cfg.TERMISHARE_ICE_SERVER_TURNS...)
+
+	config := webrtc.Configuration{
+		ICEServers:   iceServers,
+		SDPSemantics: webrtc.SDPSemanticsUnifiedPlanWithFallback,
 	}
 
 	peerConn, err := webrtc.NewPeerConnection(config)
+	if err != nil {
+		log.Printf("Failed to create peer connetion : %s", err)
+	}
+
+	//_, w, err := os.Pipe()
+	// kill the stdout
+	os.Stdin = nil
+
 	rc.peerConn = peerConn
 
 	peerConn.OnConnectionStateChange(func(s webrtc.PeerConnectionState) {
 		log.Printf("Peer connection state has changed: %s", s.String())
 	})
 
-	go rc.startHandleWsMessages()
+	configChannel, err := peerConn.CreateDataChannel(cfg.TERMISHARE_WEBRTC_CONFIG_CHANNEL, nil)
+	dataChannel, err := peerConn.CreateDataChannel(cfg.TERMISHARE_WEBRTC_DATA_CHANNEL, nil)
+	rc.configChannel = configChannel
+	rc.dataChannel = dataChannel
+
+	configChannel.OnMessage(func(msg webrtc.DataChannelMessage) {
+		log.Printf("Config got channel: %v", msg)
+	})
+
+	dataChannel.OnMessage(func(msg webrtc.DataChannelMessage) {
+		os.Stdout.Write(msg.Data)
+	})
+
+	peerConn.OnICECandidate(func(ice *webrtc.ICECandidate) {
+		if ice == nil {
+			return
+		}
+
+		candidate, err := json.Marshal(ice.ToJSON())
+		if err != nil {
+			log.Printf("Failed to decode ice candidate: %s", err)
+			return
+		}
+
+		msg := message.Wrapper{
+			Type: message.TRTCKiss,
+			Data: string(candidate),
+		}
+
+		rc.writeWebsocket(msg)
+	})
+
+	peerConn.OnDataChannel(func(d *webrtc.DataChannel) {
+		log.Printf("New DataChannel %s %d\n", d.Label(), d.ID())
+
+		// Register channel opening handling
+		d.OnOpen(func() {
+			switch label := d.Label(); label {
+
+			default:
+				log.Printf("Unhandled data channel with label: %s", d.Label())
+			}
+		})
+	})
 
 	// send offer
 	offer, err := peerConn.CreateOffer(nil)
@@ -80,21 +133,30 @@ func (rc *RemoteClient) Connect(server string, sessionID string) {
 		rc.Stop("Failed to connect to termishare session")
 	}
 
+	err = peerConn.SetLocalDescription(offer)
+	if err != nil {
+		log.Printf("Failed to set local description: %s", err)
+		rc.Stop("Failed to connect to termishare session")
+	}
+
 	offerByte, _ := json.Marshal(offer)
 	payload := message.Wrapper{
-		Type: message.TRTCYes,
+		Type: message.TRTCWillYouMarryMe,
 		Data: string(offerByte),
 	}
+
 	rc.writeWebsocket(payload)
+	log.Printf("need to send an offer: %s", string(offerByte))
 
-}
+	// scan stdin and send to the host
+	go io.Copy(rc, os.Stdin)
 
-func (rc *RemoteClient) startHandleWsMessages() error {
+	// handle websocket messages
 	for {
 		msg, ok := <-rc.wsConn.In
 		if !ok {
 			log.Printf("Failed to read websocket message")
-			return fmt.Errorf("Failed to read message from websocket")
+			return
 		}
 
 		// only read message sent from the host
@@ -105,9 +167,13 @@ func (rc *RemoteClient) startHandleWsMessages() error {
 		err := rc.handleWebSocketMessage(msg)
 		if err != nil {
 			log.Printf("Failed to handle message: %v, with error: %s", msg, err)
-			return err
+			return
 		}
 	}
+}
+
+func (rc *RemoteClient) startHandleWsMessages() error {
+	return nil
 }
 
 func (rc *RemoteClient) handleWebSocketMessage(msg message.Wrapper) error {
@@ -161,11 +227,39 @@ func (rc *RemoteClient) Stop(msg string) {
 	fmt.Println(msg)
 }
 
+//func (rc *RemoteClient) Stop(msg string) {
+//	log.Printf("Stop: %s", msg)
+//
+//	if rc.wsConn != nil {
+//		rc.wsConn.WriteControl(websocket.CloseMessage, []byte{}, time.Time{})
+//		rc.wsConn.Close()
+//	}
+//
+//	if rc.pty != nil {
+//		rc.pty.Stop()
+//		rc.pty.Restore()
+//	}
+//
+//	fmt.Println(msg)
+//}
+
+func (rc *RemoteClient) Write(data []byte) (int, error) {
+	if rc.dataChannel != nil {
+		rc.dataChannel.Send(data)
+	}
+	return len(data), nil
+}
+
 func (rc *RemoteClient) writeWebsocket(msg message.Wrapper) error {
 	msg.To = cfg.TERMISHARE_WEBSOCKET_HOST_ID
+	msg.From = rc.clientID
 	if rc.wsConn == nil {
 		return fmt.Errorf("Websocket not connected")
 	}
 	rc.wsConn.Out <- msg
 	return nil
+}
+
+func clearScreen() {
+	fmt.Fprintf(os.Stdout, "\033[H\033[2J")
 }
