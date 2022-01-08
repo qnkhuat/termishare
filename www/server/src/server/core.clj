@@ -7,28 +7,31 @@
             [compojure.route :as route])
   (:gen-class))
 
-(defonce connections (atom #{}))
+;; map of set of connections
+(defonce connections (atom {}))
 
-(def ws-handler {:on-connect (fn [ws]
-                               (println "New connection : " ws)
-                               (swap! connections conj ws))
+(defn ws-handler
+  [roomID]
+  {:on-connect (fn [ws]
+                 (println (format "New connection at room %s (%d)" roomID (count (roomID @connections))))
+                 (swap! connections update roomID #(if (some? %)
+                                                     (conj % ws)
+                                                     #{ws})))
 
-                 :on-error (fn [ws _e]
-                             (swap! connections disj ws))
+   :on-error (fn [ws _e]
+               (swap! connections update roomID disj ws))
 
-                 :on-close (fn [ws _status-code _reason]
-                             (swap! connections disj ws))
+   :on-close (fn [ws _status-code _reason]
+               (swap! connections update roomID disj ws))
 
-                 :on-text (fn [ws text-message]
-                            ; broadcast this message to everyone except itself
-                            (println "Broadcasted to " (-> @connections count dec))
-                            (doall (map #(send! % text-message) (filter #(not= ws %) @connections))))})
+   :on-text (fn [ws text-message]
+              ; broadcast this message to everyone except itself
+              (doall (map #(send! % text-message) (filter #(not= ws %) (roomID @connections)))))})
 
 (defroutes routes
-  (GET "/ws/:id" [] (fn [req]
-                      (println "id: " (:id (:params req)))
-                      (if (jetty/ws-upgrade-request? req)
-                        (jetty/ws-upgrade-response ws-handler))))
+  (GET "/ws/:id" [] (fn [{:keys [params] :as req}]
+                      (when (jetty/ws-upgrade-request? req)
+                        (jetty/ws-upgrade-response (ws-handler (keyword (:id params)))))))
   (route/not-found "Where are you going?"))
 
 (def app
@@ -36,11 +39,6 @@
       wrap-keyword-params
       wrap-params
       wrap-session))
-
-;(defn app [req]
-;  (if (jetty/ws-upgrade-request? req)
-;    (jetty/ws-upgrade-response ws-handler)))
-
 
 (defn -main [& _args]
   (let [port (Integer/parseInt (or (System/getenv "TERMISHARE_PORT") "3000"))]
