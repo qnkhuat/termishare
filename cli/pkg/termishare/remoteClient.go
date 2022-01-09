@@ -3,9 +3,9 @@
 package termishare
 
 import (
+	"bufio"
 	"encoding/json"
 	"fmt"
-	"io"
 	"log"
 	"os"
 	"time"
@@ -32,12 +32,18 @@ type RemoteClient struct {
 	wsConn *WebSocket
 
 	pty *pty.Pty
+
+	// store the previously pressed key to detect exit sequence
+	previousKey byte
+
+	done chan bool
 }
 
 func NewRemoteClient() *RemoteClient {
 	return &RemoteClient{
 		pty:      pty.New(),
 		clientID: uuid.NewString(),
+		done:     make(chan bool),
 	}
 }
 
@@ -45,8 +51,6 @@ func (rc *RemoteClient) Connect(server string, sessionID string) {
 	rc.sessionID = sessionID
 	wsURL := GetWSURL(server, rc.sessionID)
 	fmt.Printf("Connecting to : %s\n", wsURL)
-
-	defer rc.Stop("Bye!")
 
 	wsConn, err := NewWebSocketConnection(wsURL)
 	if err != nil {
@@ -79,6 +83,12 @@ func (rc *RemoteClient) Connect(server string, sessionID string) {
 
 	peerConn.OnConnectionStateChange(func(s webrtc.PeerConnectionState) {
 		log.Printf("Peer connection state has changed: %s", s.String())
+		switch s {
+		case webrtc.PeerConnectionStateClosed:
+		case webrtc.PeerConnectionStateDisconnected:
+		case webrtc.PeerConnectionStateFailed:
+			rc.Stop("Disconnected!")
+		}
 	})
 
 	configChannel, err := peerConn.CreateDataChannel(cfg.TERMISHARE_WEBRTC_CONFIG_CHANNEL, nil)
@@ -113,19 +123,6 @@ func (rc *RemoteClient) Connect(server string, sessionID string) {
 		rc.writeWebsocket(msg)
 	})
 
-	peerConn.OnDataChannel(func(d *webrtc.DataChannel) {
-		log.Printf("New DataChannel %s %d\n", d.Label(), d.ID())
-
-		// Register channel opening handling
-		d.OnOpen(func() {
-			switch label := d.Label(); label {
-
-			default:
-				log.Printf("Unhandled data channel with label: %s", d.Label())
-			}
-		})
-	})
-
 	// send offer
 	offer, err := peerConn.CreateOffer(nil)
 	if err != nil {
@@ -146,30 +143,57 @@ func (rc *RemoteClient) Connect(server string, sessionID string) {
 	}
 
 	rc.writeWebsocket(payload)
-	log.Printf("need to send an offer: %s", string(offerByte))
 
-	// send what client type to the host
-	go io.Copy(rc, os.Stdin)
+	// Read from stdin and send to the host
+	stdinReader := bufio.NewReaderSize(os.Stdin, 1)
+	go func() {
+		for {
+			d, err := stdinReader.ReadByte()
+			if err != nil {
+				log.Printf("Failed to read from stdin: %s", err)
+				continue
+			}
+			// if detects Ctrl-c + Ctrl-x => stop
+			if rc.previousKey == byte('\x03') && d == byte('\x18') {
+				log.Printf("Escape key detected. Exiting")
+				rc.Stop("Disconnected!")
+				break
+			}
+			rc.previousKey = d
+			if rc.dataChannel != nil {
+				rc.dataChannel.Send([]byte{d})
+			}
+		}
+
+		log.Printf("out read from stdin")
+	}()
 
 	// handle websocket messages
-	for {
-		msg, ok := <-rc.wsConn.In
-		if !ok {
-			log.Printf("Failed to read websocket message")
-			return
-		}
+	go func() {
+		for {
+			msg, ok := <-rc.wsConn.In
+			if !ok {
+				log.Printf("Failed to read websocket message")
+				break
+			}
 
-		// only read message sent from the host
-		if msg.From != cfg.TERMISHARE_WEBSOCKET_HOST_ID {
-			log.Printf("Skip message :%v", msg)
-		}
+			// only read message sent from the host
+			if msg.From != cfg.TERMISHARE_WEBSOCKET_HOST_ID {
+				log.Printf("Skip message :%v", msg)
+			}
 
-		err := rc.handleWebSocketMessage(msg)
-		if err != nil {
-			log.Printf("Failed to handle message: %v, with error: %s", msg, err)
-			return
+			err := rc.handleWebSocketMessage(msg)
+			if err != nil {
+				log.Printf("Failed to handle message: %v, with error: %s", msg, err)
+				break
+			}
 		}
-	}
+		log.Printf("out read from websocket")
+	}()
+
+	// Wait
+	<-rc.done
+	return
 }
 
 func (rc *RemoteClient) startHandleWsMessages() error {
@@ -217,21 +241,23 @@ func (rc *RemoteClient) Stop(msg string) {
 	if rc.wsConn != nil {
 		rc.wsConn.WriteControl(websocket.CloseMessage, []byte{}, time.Time{})
 		rc.wsConn.Close()
+		rc.wsConn = nil
+	}
+
+	if rc.peerConn != nil {
+		rc.peerConn.Close()
+		rc.peerConn = nil
 	}
 
 	if rc.pty != nil {
-		rc.pty.Stop()
 		rc.pty.Restore()
+		rc.pty = nil
 	}
 
+	clearScreen()
 	fmt.Println(msg)
-}
-
-func (rc *RemoteClient) Write(data []byte) (int, error) {
-	if rc.dataChannel != nil {
-		rc.dataChannel.Send(data)
-	}
-	return len(data), nil
+	rc.done <- true
+	return
 }
 
 func (rc *RemoteClient) writeWebsocket(msg message.Wrapper) error {

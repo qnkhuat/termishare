@@ -183,15 +183,14 @@
   []
   (ws-connect (str (assoc (uri "")
                           :scheme (if (= "https" (:scheme (uri TERMISHARE_SERVER_URL))) "wss" "ws")
-                          :host  (:host (uri TERMISHARE_SERVER_URL))
-                          :port  (:port (uri TERMISHARE_SERVER_URL))
-                          :path  (str "/ws/" (:roomID (route/params))))))
+                          :host   (:host (uri TERMISHARE_SERVER_URL))
+                          :port   (:port (uri TERMISHARE_SERVER_URL))
+                          :path   (str "/ws/" (:roomID (route/params))))))
   (peer-connect)
   (send-offer))
 
 
 ;;; ------------------------------ Component ------------------------------
-
 
 (defn roomID
   []

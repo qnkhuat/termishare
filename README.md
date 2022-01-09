@@ -29,3 +29,10 @@ If you want to ensure your terminal is not connected to an unknown server, you c
 - [ ] Connect to termishare session via `termishare` itself, instead of web-client
 - [ ] Install via brew/apt
 - [ ] Approval mechanism
+
+## TODO
+- [ ] Figure out a way to have exit session
+- [ ] Hanlde window size from client
+- [ ] Revise command options
+- [ ] Reorganize the client code
+- [ ] Maybe add a command `refresh` to refresh the content

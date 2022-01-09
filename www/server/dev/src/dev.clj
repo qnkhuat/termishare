@@ -8,18 +8,16 @@
 
 (defonce ^:private instance* (atom nil))
 
-(defn instance []
-  @instance*)
-
 (defn start! []
   (println "Serving at localhost: 3000" )
   (reset! instance* (run-jetty (wrap-reload #'app) {:port 3000
                                                     :join? false})))
 
 (defn stop! []
-  (when (instance)
+  (when @instance*
     (println "Stopping")
-    (.stop (instance))))
+    (.stop @instance*)
+    (reset! instance* nil)))
 
 (defn restart! []
   (stop!)

@@ -61,6 +61,7 @@ func (ts *Termishare) Start(server string, noTurn bool) error {
 	bufio.NewReader(os.Stdin).ReadString('\n')
 
 	fmt.Printf("Sharing at: %s\n", GetClientURL(server, sessionID))
+	fmt.Println("Type 'exit' or press 'Ctrl-D' to exit")
 	ts.pty.MakeRaw()
 	defer ts.Stop("Bye!")
 
@@ -137,11 +138,17 @@ func (ts *Termishare) Stop(msg string) {
 	if ts.wsConn != nil {
 		ts.wsConn.WriteControl(websocket.CloseMessage, []byte{}, time.Time{})
 		ts.wsConn.Close()
+		ts.wsConn = nil
+	}
+
+	for _, client := range ts.clients {
+		client.conn.Close()
 	}
 
 	if ts.pty != nil {
 		ts.pty.Stop()
 		ts.pty.Restore()
+		ts.pty = nil
 	}
 
 	log.Printf("Stop: %s", msg)
