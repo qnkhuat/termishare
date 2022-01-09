@@ -51,6 +51,7 @@ func (rc *RemoteClient) Connect(server string, sessionID string) {
 	rc.sessionID = sessionID
 	wsURL := GetWSURL(server, rc.sessionID)
 	fmt.Printf("Connecting to : %s\n", wsURL)
+	fmt.Println("Press 'Ctrl-c + Ctrl-x' to exit")
 
 	wsConn, err := NewWebSocketConnection(wsURL)
 	if err != nil {
