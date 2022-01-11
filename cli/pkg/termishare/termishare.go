@@ -369,12 +369,28 @@ func (ts *Termishare) newClient(ID string) (*Client, error) {
 				ts.pty.Refresh()
 
 			case cfg.TERMISHARE_WEBRTC_CONFIG_CHANNEL:
-				d.OnMessage(func(msg webrtc.DataChannelMessage) {
-					log.Printf("config channel got message: %v", msg)
+				d.OnMessage(func(webrtcMsg webrtc.DataChannelMessage) {
+
+					msg := &message.Wrapper{}
+					err := json.Unmarshal(webrtcMsg.Data, msg)
+					if err != nil {
+						log.Printf("Failed to read config message: %s", err)
+						return
+					}
+
+					log.Printf("Config channel got msg: %v", msg)
+					switch msg.Type {
+					case message.TTermRefresh:
+						ts.pty.Refresh()
+
+					default:
+						log.Printf("Unhandled msg config type: %s", msg.Type)
+					}
+
 				})
 				ts.clients[ID].configChannel = d
 
-				// send config at sync
+				// send config at first to sync
 				ws, _ := pty.GetWinsize(0)
 				msg := message.Wrapper{
 					Type: message.TTermWinsize,

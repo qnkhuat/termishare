@@ -13,6 +13,10 @@ const (
 
 	TTermWinsize MType = "Winsize" // Update winsize
 
+	// Client can order the host to refresh the terminal
+	// Used in case client resize and need to update the content to display correctly
+	TTermRefresh MType = "Refresh"
+
 	TWSPing MType = "Ping"
 )
 
@@ -29,7 +33,6 @@ type Winsize struct {
 }
 
 // *** Helper functions ***
-
 func Unwrap(buff []byte) (Wrapper, error) {
 	obj := Wrapper{}
 	err := json.Unmarshal(buff, &obj)

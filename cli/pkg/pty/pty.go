@@ -62,7 +62,7 @@ func (pty *Pty) execCommand(command string, envVars []string) error {
 		return err
 	}
 	// Set the initial window size
-	winSize, _ := GetWinsize(0)
+	winSize, _ := GetWinsize(0) // fd 0 is stdin, 1 is stdout
 	pty.SetWinsize(winSize)
 
 	pty.SetWinChangeCB(func(ws *ptyDevice.Winsize) {

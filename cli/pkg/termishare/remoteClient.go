@@ -10,6 +10,7 @@ import (
 	"os"
 	"time"
 
+	ptyDevice "github.com/creack/pty"
 	"github.com/google/uuid"
 	"github.com/gorilla/websocket"
 	"github.com/pion/webrtc/v3"
@@ -21,29 +22,35 @@ import (
 type RemoteClient struct {
 	sessionID string
 	clientID  string
+
+	// use Client struct
 	// for transferring terminal changes
 	dataChannel *webrtc.DataChannel
-
 	// for transferring config like winsize
 	configChannel *webrtc.DataChannel
-
-	peerConn *webrtc.PeerConnection
+	peerConn      *webrtc.PeerConnection
 
 	wsConn *WebSocket
-
-	pty *pty.Pty
+	pty    *pty.Pty
 
 	// store the previously pressed key to detect exit sequence
 	previousKey byte
-
-	done chan bool
+	done        chan bool
+	winSizes    struct {
+		remoteRows uint16
+		remoteCols uint16
+		thisRows   uint16
+		thisCols   uint16
+	}
+	muteDisplay bool
 }
 
 func NewRemoteClient() *RemoteClient {
 	return &RemoteClient{
-		pty:      pty.New(),
-		clientID: uuid.NewString(),
-		done:     make(chan bool),
+		pty:         pty.New(),
+		clientID:    uuid.NewString(),
+		done:        make(chan bool),
+		muteDisplay: false,
 	}
 }
 
@@ -51,7 +58,7 @@ func (rc *RemoteClient) Connect(server string, sessionID string) {
 	rc.sessionID = sessionID
 	wsURL := GetWSURL(server, rc.sessionID)
 	fmt.Printf("Connecting to : %s\n", wsURL)
-	fmt.Println("Press 'Ctrl-c + Ctrl-x' to exit")
+	fmt.Println("Press 'Ctrl-x + Ctrl-x' to exit")
 
 	wsConn, err := NewWebSocketConnection(wsURL)
 	if err != nil {
@@ -59,12 +66,24 @@ func (rc *RemoteClient) Connect(server string, sessionID string) {
 		rc.Stop("Failed to connect to signaling server")
 	}
 	go wsConn.Start()
+	rc.wsConn = wsConn
 
 	// will stop stdin from piping to stdout
 	rc.pty.MakeRaw()
 	defer rc.pty.Restore()
 
-	rc.wsConn = wsConn
+	winsize, err := pty.GetWinsize(0)
+	if err != nil {
+		rc.Stop("Failed to start")
+	}
+	rc.winSizes.thisCols = winsize.Cols
+	rc.winSizes.thisRows = winsize.Rows
+
+	rc.pty.SetWinChangeCB(func(ws *ptyDevice.Winsize) {
+		rc.winSizes.thisCols = ws.Cols
+		rc.winSizes.thisRows = ws.Rows
+		rc.maybeNeedResize()
+	})
 
 	// Initiate peer connection
 	iceServers := cfg.TERMISHARE_ICE_SERVER_STUNS
@@ -97,12 +116,37 @@ func (rc *RemoteClient) Connect(server string, sessionID string) {
 	rc.configChannel = configChannel
 	rc.dataChannel = dataChannel
 
-	configChannel.OnMessage(func(msg webrtc.DataChannelMessage) {
-		log.Printf("Config got channel: %v", msg)
+	configChannel.OnMessage(func(webrtcMsg webrtc.DataChannelMessage) {
+		msg := &message.Wrapper{}
+		err := json.Unmarshal(webrtcMsg.Data, msg)
+		if err != nil {
+			log.Printf("Failed to read config message: %s", err)
+			return
+		}
+
+		log.Printf("Config channel got msg: %v", msg)
+		switch msg.Type {
+		case message.TTermWinsize:
+			ws := &message.Winsize{}
+			err = message.ToStruct(msg.Data, ws)
+			if err != nil {
+				log.Printf("Failed to decode winsize message: %s", err)
+				return
+			}
+
+			rc.winSizes.remoteCols = ws.Cols
+			rc.winSizes.remoteRows = ws.Rows
+			rc.maybeNeedResize()
+
+		default:
+			log.Printf("Unhandled msg config type: %s", msg.Type)
+		}
 	})
 
 	dataChannel.OnMessage(func(msg webrtc.DataChannelMessage) {
-		os.Stdout.Write(msg.Data)
+		if !rc.muteDisplay {
+			os.Stdout.Write(msg.Data)
+		}
 	})
 
 	peerConn.OnICECandidate(func(ice *webrtc.ICECandidate) {
@@ -121,7 +165,7 @@ func (rc *RemoteClient) Connect(server string, sessionID string) {
 			Data: string(candidate),
 		}
 
-		rc.writeWebsocket(msg)
+		rc.sendWebsocket(msg)
 	})
 
 	// send offer
@@ -143,7 +187,7 @@ func (rc *RemoteClient) Connect(server string, sessionID string) {
 		Data: string(offerByte),
 	}
 
-	rc.writeWebsocket(payload)
+	rc.sendWebsocket(payload)
 
 	// Read from stdin and send to the host
 	stdinReader := bufio.NewReaderSize(os.Stdin, 1)
@@ -154,8 +198,8 @@ func (rc *RemoteClient) Connect(server string, sessionID string) {
 				log.Printf("Failed to read from stdin: %s", err)
 				continue
 			}
-			// if detects Ctrl-c + Ctrl-x => stop
-			if rc.previousKey == byte('\x03') && d == byte('\x18') {
+			// if detects Ctrl-x + Ctrl-x => stop
+			if rc.previousKey == byte('\x18') && d == byte('\x18') {
 				log.Printf("Escape key detected. Exiting")
 				rc.Stop("Disconnected!")
 				break
@@ -165,8 +209,6 @@ func (rc *RemoteClient) Connect(server string, sessionID string) {
 				rc.dataChannel.Send([]byte{d})
 			}
 		}
-
-		log.Printf("out read from stdin")
 	}()
 
 	// handle websocket messages
@@ -189,16 +231,11 @@ func (rc *RemoteClient) Connect(server string, sessionID string) {
 				break
 			}
 		}
-		log.Printf("out read from websocket")
 	}()
 
 	// Wait
 	<-rc.done
 	return
-}
-
-func (rc *RemoteClient) startHandleWsMessages() error {
-	return nil
 }
 
 func (rc *RemoteClient) handleWebSocketMessage(msg message.Wrapper) error {
@@ -261,7 +298,45 @@ func (rc *RemoteClient) Stop(msg string) {
 	return
 }
 
-func (rc *RemoteClient) writeWebsocket(msg message.Wrapper) error {
+func (rc *RemoteClient) maybeNeedResize() {
+	if (rc.winSizes.remoteCols == 0 && rc.winSizes.remoteRows == 0) || (rc.winSizes.thisCols == 0 && rc.winSizes.thisRows == 0) {
+		// not iniated
+		return
+	}
+
+	if rc.winSizes.thisRows < rc.winSizes.remoteRows || rc.winSizes.thisCols < rc.winSizes.remoteCols {
+		rc.muteDisplay = true
+		clearScreen()
+		fmt.Printf("\n\rYour terminal is smaller than the host's terminal\n\r"+
+			"Please resize or press 'Ctrl-x + Ctrl-x' to exit\n\rHost's terminal: %dx%d\n\rYour terminal: %dx%d\n\r",
+			rc.winSizes.remoteCols, rc.winSizes.remoteRows, rc.winSizes.thisCols, rc.winSizes.thisRows)
+	} else {
+		rc.muteDisplay = false
+		clearScreen()
+		err := rc.requestRemoteRefresh()
+		if err != nil {
+			log.Printf("Failed to request refresh: %s", err)
+		}
+	}
+}
+
+func (rc *RemoteClient) requestRemoteRefresh() error {
+	return rc.sendConfig(message.Wrapper{Type: message.TTermRefresh})
+}
+
+func (rc *RemoteClient) sendConfig(msg message.Wrapper) error {
+	if rc.configChannel != nil {
+		payload, err := json.Marshal(msg)
+		if err != nil {
+			return err
+		}
+		return rc.configChannel.Send(payload)
+	} else {
+		return fmt.Errorf("Config channel not existed")
+	}
+}
+
+func (rc *RemoteClient) sendWebsocket(msg message.Wrapper) error {
 	msg.To = cfg.TERMISHARE_WEBSOCKET_HOST_ID
 	msg.From = rc.clientID
 	if rc.wsConn == nil {
