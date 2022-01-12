@@ -20,8 +20,7 @@ import (
 )
 
 type RemoteClient struct {
-	sessionID string
-	clientID  string
+	clientID string
 
 	// use Client struct
 	// for transferring terminal changes
@@ -55,10 +54,12 @@ func NewRemoteClient() *RemoteClient {
 }
 
 func (rc *RemoteClient) Connect(server string, sessionID string) {
-	rc.sessionID = sessionID
-	wsURL := GetWSURL(server, rc.sessionID)
+	wsURL := GetWSURL(server, sessionID)
 	fmt.Printf("Connecting to : %s\n", wsURL)
 	fmt.Println("Press 'Ctrl-x + Ctrl-x' to exit")
+
+	fmt.Printf("Press Enter to continue!\n")
+	bufio.NewReader(os.Stdin).ReadString('\n')
 
 	wsConn, err := NewWebSocketConnection(wsURL)
 	if err != nil {

@@ -33,7 +33,7 @@ If you want to ensure your terminal is not connected to an unknown server, you c
 ## TODO
 - [x] Figure out a way to have exit session
 - [x] Hanlde window size from client
-- [ ] Revise command options
+- [x] Revise command options
 - [ ] Revise print messages
 - [ ] Reorganize the client code
 - [ ] Maybe add a command `refresh` to refresh the content
