@@ -4,8 +4,11 @@
             [ring.middleware.keyword-params :refer [wrap-keyword-params]]
             [ring.middleware.params :refer [wrap-params]]
             [ring.middleware.session :refer [wrap-session]]
-            [compojure.route :as route])
+            [ring.middleware.file :refer [wrap-file]]
+            [ring.util.response :refer [file-response]])
   (:gen-class))
+
+(def frontend-root "target/classes/public/termishare/")
 
 ;; map of set of connections
 (defonce connections (atom {}))
@@ -32,13 +35,18 @@
   (GET "/ws/:id" [] (fn [{:keys [params] :as req}]
                       (when (jetty/ws-upgrade-request? req)
                         (jetty/ws-upgrade-response (ws-handler (keyword (:id params)))))))
-  (route/not-found "Where are you going?"))
+  (GET "/" [] (fn [_req]
+                (file-response "index.html" {:root frontend-root})))
+  (GET "/:sessionId" [] (fn [_req]
+                          (file-response "index.html" {:root frontend-root}))))
+
 
 (def app
   (-> #'routes
       wrap-keyword-params
       wrap-params
-      wrap-session))
+      wrap-session
+      (wrap-file frontend-root)))
 
 (defn -main [& _args]
   (let [port (Integer/parseInt (or (System/getenv "TERMISHARE_PORT") "3000"))]
