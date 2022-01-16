@@ -2,7 +2,6 @@
   (:require [reagent.core :as r]
             [termishare.constants :as const]
             [termishare.route :as route]
-            [termishare.env :refer [TERMISHARE_DOMAIN]]
             [lambdaisland.uri :refer [uri]]
             ["xterm" :as xterm]))
 
@@ -181,9 +180,9 @@
 (defn connect
   []
   (ws-connect (str (assoc (uri "")
-                          :scheme (if (= "https" (:scheme (uri TERMISHARE_DOMAIN))) "wss" "ws")
-                          :host   (:host (uri TERMISHARE_DOMAIN))
-                          :port   (:port (uri TERMISHARE_DOMAIN))
+                          :scheme (if (= "https" (:scheme (uri route/current-host))) "wss" "ws")
+                          :host   (:host (uri route/current-host))
+                          :port   (:port (uri route/current-host))
                           :path   (str "/ws/" (:roomID (route/params))))))
   (peer-connect)
   (send-offer))

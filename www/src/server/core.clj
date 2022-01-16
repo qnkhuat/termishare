@@ -37,12 +37,20 @@
               (doall (map #(send! % text-message) (filter #(not= ws %) (roomID @connections)))))})
 
 (defroutes routes
-  (GET "/ws/:id" [] (fn [{:keys [params] :as req}]
-                      (when (jetty/ws-upgrade-request? req)
-                        (jetty/ws-upgrade-response (ws-handler (keyword (:id params)))))))
+  (GET "/api/health" []
+       (fn [_req]
+         "fine"))
+
+  (GET "/ws/:id" []
+       (fn [{:keys [params] :as req}]
+         (println "got a reququest: " req)
+         (when (jetty/ws-upgrade-request? req)
+           (jetty/ws-upgrade-response (ws-handler (keyword (:id params)))))))
+
   (GET "/" []
        (fn [_req]
          (resource-response "index.html" {:root frontend-root})))
+
   (GET "/:sessionId" []
        (fn [_req]
          (resource-response "index.html" {:root frontend-root})))
@@ -58,7 +66,11 @@
       (wrap-log-response {:log-fn log-fn})
       (wrap-resource frontend-root)))
 
+(re-find #"\*" "fdfsd")
+
 (defn -main [& _args]
-  (let [port (Integer/parseInt (or (System/getenv "TERMISHARE_PORT") "3000"))]
-    (println "Serving at localhost:" port)
-    (run-jetty app {:port port})))
+  (let [host (or (System/getenv "TERMISHARE_HOST") "localhost")
+        port (Integer/parseInt (or (System/getenv "TERMISHARE_PORT") "3000"))]
+    (println (format "Serving at %s:%s" host port))
+    (run-jetty app {:port port
+                    :host host})))

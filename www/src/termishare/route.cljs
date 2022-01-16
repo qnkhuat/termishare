@@ -26,3 +26,6 @@
 
 (defn redirect! [loc]
   (set! (.-location js/window) loc))
+
+(def current-host
+  (.-location js/window))

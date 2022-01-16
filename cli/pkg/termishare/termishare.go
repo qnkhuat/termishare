@@ -57,7 +57,7 @@ func (ts *Termishare) Start(server string, noTurn bool) error {
 	log.Printf("New session : %s", sessionID)
 	envVars := []string{fmt.Sprintf("%s=%s", cfg.TERMISHARE_ENVKEY_SESSIONID, sessionID)}
 	ts.pty.StartDefaultShell(envVars)
-	fmt.Printf("Press Enter to continue!\n")
+	fmt.Printf("Press Enter to continue!\r\n")
 	bufio.NewReader(os.Stdin).ReadString('\n')
 
 	fmt.Printf("Sharing at: %s\n", GetClientURL(server, sessionID))
@@ -66,10 +66,11 @@ func (ts *Termishare) Start(server string, noTurn bool) error {
 	defer ts.Stop("Bye!")
 
 	wsURL := GetWSURL(server, sessionID)
-	wsConn, err := NewWebSocketConnection(wsURL)
 	log.Printf("Connecting to: %s", wsURL)
+	wsConn, err := NewWebSocketConnection(wsURL)
 	if err != nil {
-		ts.Stop("Failed to connect to websocket server")
+		log.Printf("Failed to connect to signaling server: %s", err)
+		ts.Stop("Failed to connect to signaling server")
 		return err
 	}
 
