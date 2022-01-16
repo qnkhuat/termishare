@@ -30,3 +30,5 @@ If you want to ensure your terminal is not connected to an unknown server, you c
 - [ ] Install via brew/apt
 - [ ] Approval mechanism
 
+## Inspired by
+- https://github.com/elisescu/tty-share
