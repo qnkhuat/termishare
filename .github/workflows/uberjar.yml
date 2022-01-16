@@ -37,5 +37,5 @@ jobs:
           echo "Node.js `node --version`"
           echo "yarn `yarn --version`"
           java -version
-     - name: Build
-       run: clj -T:build uber
+      - name: Build
+        run: clj -T:build uber
