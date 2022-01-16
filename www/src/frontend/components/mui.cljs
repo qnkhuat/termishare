@@ -1,4 +1,4 @@
-(ns termishare.components.mui
+(ns frontend.components.mui
   (:require [reagent.core :as r]
             ["@mui/material/Button" :as MuiButton]
             ["@mui/material/FormControl" :as MuiFormControl]

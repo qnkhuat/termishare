@@ -1,4 +1,4 @@
-(ns termishare.route
+(ns frontend.route
   (:require [reagent.core :as r]))
 
 (defonce current-route (r/atom {:route-name nil

@@ -1,4 +1,4 @@
-(ns termishare.constants)
+(ns frontend.constants)
 ;; Should reflect the constants in cli/pkg/message/message.go and cli/internal/cfg
 
 ;; message

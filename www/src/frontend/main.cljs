@@ -1,11 +1,11 @@
-(ns termishare.main
+(ns frontend.main
   (:require [bide.core :as bide]
             [reagent.dom :as rd]
-            [termishare.route :as route]
-            [termishare.components.mui :refer [ThemeProvider]]
+            [frontend.route :as route]
+            [frontend.components.mui :refer [ThemeProvider]]
             ["@mui/material/styles" :refer [createTheme]]
-            [termishare.pages.roomID :refer [roomID]]
-            [termishare.pages.index :refer [index]]))
+            [frontend.pages.roomID :refer [roomID]]
+            [frontend.pages.index :refer [index]]))
 
 (defonce router
   (bide/router [["/" :home]

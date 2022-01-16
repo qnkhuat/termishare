@@ -1,7 +1,7 @@
-(ns termishare.pages.roomID
+(ns frontend.pages.roomID
   (:require [reagent.core :as r]
-            [termishare.constants :as const]
-            [termishare.route :as route]
+            [frontend.constants :as const]
+            [frontend.route :as route]
             [lambdaisland.uri :refer [uri]]
             ["xterm" :as xterm]))
 

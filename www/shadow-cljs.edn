@@ -12,7 +12,7 @@
   :builds
  {:app
   {:target           :browser
-   :modules          {:main {:init-fn termishare.main/init}}
+   :modules          {:main {:init-fn frontend.main/init}}
    :output-dir       "resources/frontend/static"
    :compiler-options {:infer-externs      :auto
                       :output-feature-set :es6}}}}

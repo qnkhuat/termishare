@@ -1,13 +1,12 @@
 {
   "name": "Termishare",
-  "version": "0.0.1",
   "private": true,
   "scripts": {
     "clean": "rm -rf resources/frontend/static",
     "shadow:watch": "shadow-cljs watch app",
     "shadow:release": "shadow-cljs release app",
-    "postcss:watch": "TAILWIND_MODE=watch postcss src/termishare/css/*.css -o resources/frontend/static/main.css --verbose -w",
-    "postcss:release": "NODE_ENV=production postcss src/termishare/css/*.css -o resources/frontend/static/main.css --verbose",
+    "postcss:watch": "TAILWIND_MODE=watch postcss src/frontend/css/*.css -o resources/frontend/static/main.css --verbose -w",
+    "postcss:release": "NODE_ENV=production postcss src/frontend/css/*.css -o resources/frontend/static/main.css --verbose",
     "dev": "npm run clean && run-p -l *:watch",
     "release": "npm run clean && run-s *:release"
   },

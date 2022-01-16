@@ -1,6 +1,6 @@
-(ns termishare.pages.index
-  (:require [termishare.components.mui :refer [GitHubIcon TextField Button]]
-            [termishare.route :as route]
+(ns frontend.pages.index
+  (:require [frontend.components.mui :refer [GitHubIcon TextField Button]]
+            [frontend.route :as route]
             [lambdaisland.uri :refer [uri]]
             [reagent.core :as r]))
 
