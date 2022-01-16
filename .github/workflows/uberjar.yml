@@ -3,8 +3,8 @@ name: uberjar
 on:
   pull_request:
   push:
-    branches:
-      - '**'
+    tags:
+      - 'v*'
 
 jobs:
   uberjar:
@@ -37,3 +37,9 @@ jobs:
           java -version
       - name: Build
         run: clojure -T:build uber
+
+      - name: Release
+        uses: softprops/action-gh-release@v1
+        if: startsWith(github.ref, 'refs/tags/')
+        with:
+          files: target/termishare.jar
