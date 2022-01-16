@@ -36,4 +36,4 @@ jobs:
           echo "yarn `yarn --version`"
           java -version
       - name: Build
-        run: clj -T:build uber
+        run: clojure -T:build uber
