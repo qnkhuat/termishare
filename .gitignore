@@ -1,4 +1,2 @@
-# general
-.DS_Store
-*.swo
-*.swp
+target/
+.cpcache
