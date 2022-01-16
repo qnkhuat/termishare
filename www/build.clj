@@ -4,7 +4,7 @@
 
 (def basis (b/create-basis {:project "deps.edn"}))
 (def src-dir "src/server/")
-(def uber-file "target/colab.jar")
+(def uber-file "target/termishare.jar")
 (def class-dir "target/classes")
 
 (defn release-frontend
@@ -24,7 +24,7 @@
 (defn uber [_]
   (clean)
   (release-frontend)
-  ;; Is not required but doesn't hurt anything
+  ;; Is not required to copy source, but doesn't hurt anything
   (b/copy-dir {:src-dirs   [src-dir "resources"]
                :target-dir class-dir})
   (b/compile-clj {:basis     basis

@@ -15,10 +15,12 @@ pom.xml.asc
 
 # shadow-js
 node_modules/
-public/js
-public/css
 /src/gen
 .shadow-cljs/
+
+# ignore every front-end generated files except the index file
+resources/frontend/
+!resources/frontend/index.html
 
 # linting
 .clj-kondo

@@ -1,14 +1,19 @@
 (ns server.core
   (:require [ring.adapter.jetty9 :refer [run-jetty send!] :as jetty]
             [compojure.core :refer [defroutes GET]]
+            [compojure.route :as route]
             [ring.middleware.keyword-params :refer [wrap-keyword-params]]
             [ring.middleware.params :refer [wrap-params]]
             [ring.middleware.session :refer [wrap-session]]
-            [ring.middleware.file :refer [wrap-file]]
-            [ring.util.response :refer [file-response]])
+            [ring.middleware.resource :refer [wrap-resource]]
+            [ring.util.response :refer [resource-response]]
+            [ring.logger :refer [wrap-log-request-start wrap-log-response]])
   (:gen-class))
 
-(def frontend-root "target/classes/public/termishare/")
+(def frontend-root "frontend") ;; relative to target/classes/ during prod, or resources during development
+
+(def log-fn (fn [{:keys [level throwable message]}]
+              (println level throwable message)))
 
 ;; map of set of connections
 (defonce connections (atom {}))
@@ -17,9 +22,9 @@
   [roomID]
   {:on-connect (fn [ws]
                  (println (format "New connection at room: %s (%d)" (name roomID) (count (roomID @connections))))
-                 (swap! connections update roomID #(if (some? %)
-                                                     (conj % ws)
-                                                     #{ws})))
+                 (swap! connections update roomID #(if (nil? %)
+                                                     #{ws}
+                                                     (conj % ws))))
 
    :on-error (fn [ws _e]
                (swap! connections update roomID disj ws))
@@ -37,17 +42,21 @@
                         (jetty/ws-upgrade-response (ws-handler (keyword (:id params)))))))
   (GET "/" []
        (fn [_req]
-         (file-response "index.html" {:root frontend-root})))
+         (resource-response "index.html" {:root frontend-root})))
   (GET "/:sessionId" []
        (fn [_req]
-         (file-response "index.html" {:root frontend-root}))))
+         (resource-response "index.html" {:root frontend-root})))
+
+  (route/not-found "<h1>Page not found</h1>"))
 
 (def app
   (-> #'routes
       wrap-keyword-params
       wrap-params
       wrap-session
-      (wrap-file frontend-root)))
+      (wrap-log-request-start {:log-fn log-fn})
+      (wrap-log-response {:log-fn log-fn})
+      (wrap-resource frontend-root)))
 
 (defn -main [& _args]
   (let [port (Integer/parseInt (or (System/getenv "TERMISHARE_PORT") "3000"))]

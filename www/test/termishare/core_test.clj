@@ -1,4 +1,4 @@
-(ns colab.core-test
+(ns termishare.core-test
   (:require [clojure.test :refer :all]
             [termishare.core :refer :all]))
 
