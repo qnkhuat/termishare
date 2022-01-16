@@ -1,8 +1,8 @@
 (ns termishare.pages.roomID
   (:require [reagent.core :as r]
             [termishare.constants :as const]
-            [termishare.env :refer [TERMISHARE_SERVER_URL]]
             [termishare.route :as route]
+            [termishare.env :refer [TERMISHARE_DOMAIN]]
             [lambdaisland.uri :refer [uri]]
             ["xterm" :as xterm]))
 
@@ -21,11 +21,10 @@
 
 (defn websocket-send-msg
   [msg]
-  (js/console.log "Sending a message:" (clj->js msg))
   (.send (:ws-conn @state) (-> msg
                                (assoc
-                                :From connection-id
-                                :To const/TERMISHARE_WEBSOCKET_HOST_ID)
+                                 :From connection-id
+                                 :To   const/TERMISHARE_WEBSOCKET_HOST_ID)
                                clj->js
                                js/JSON.stringify)))
 
@@ -96,6 +95,7 @@
     (let [conn (js/WebSocket. url)]
       (set! (.-onopen conn) (fn [_e]
                               (js/console.log "Websocket connected")
+                              ;; Send all messages has been queued when it's not connected
                               (doall (map (fn [msg] (websocket-send-msg msg))
                                           @msg-queue))
                               (reset! msg-queue [])))
@@ -155,7 +155,6 @@
   (let [conn               (js/RTCPeerConnection. ice-candidate-config)
         termishare-channel (.createDataChannel conn (str const/TERMISHARE_WEBRTC_DATA_CHANNEL))
         config-channel     (.createDataChannel conn (str const/TERMISHARE_WEBRTC_CONFIG_CHANNEL))]
-    ;; TODO : close websocket connection when peer is connected?
     (set! (.-onconnectionstatechange conn) (fn [e] (js/console.log "Peer connection state change: " (.. e -target -connectionState))))
     (set! (.-onicecandidate conn) rtc-onicecandidate)
     (set! (.-ondatachannel conn) rtc-ondatachannel)
@@ -163,7 +162,7 @@
     (set! (.-binaryType config-channel) "arraybuffer")
     (set! (.-onmessage termishare-channel) rtc-on-termishare-channel)
     (set! (.-onmessage config-channel) rtc-on-config-channel)
-    ;; Write back to the host
+    ;; Take user input and send to the host
     (.onData (:term @state)
              (fn [data] (.send termishare-channel (.encode text-encoder data))))
     (swap! state assoc :peer-conn conn)))
@@ -182,33 +181,30 @@
 (defn connect
   []
   (ws-connect (str (assoc (uri "")
-                          :scheme (if (= "https" (:scheme (uri TERMISHARE_SERVER_URL))) "wss" "ws")
-                          :host   (:host (uri TERMISHARE_SERVER_URL))
-                          :port   (:port (uri TERMISHARE_SERVER_URL))
+                          :scheme (if (= "https" (:scheme (uri TERMISHARE_DOMAIN))) "wss" "ws")
+                          :host   (:host (uri TERMISHARE_DOMAIN))
+                          :port   (:port (uri TERMISHARE_DOMAIN))
                           :path   (str "/ws/" (:roomID (route/params))))))
   (peer-connect)
   (send-offer))
 
 
 ;;; ------------------------------ Component ------------------------------
-
 (defn roomID
   []
   (r/create-class
-   {:component-did-mount
-    (fn []
-      (let [term      (xterm/Terminal. #js {:cursorBlink  true
-                                            :disableStdin false})]
-        (.open term (js/document.getElementById terminal-id))
-        (set! (.-onresize js/window) (fn [_e]
-                                       (when-let [term (:term @state)]
-                                         (resize {:Cols (.-cols term)
-                                                  :Rows (.-rows term)}))))
-        (swap! state assoc :term term)
-        (connect)))
-
-    :reagent-render
-    (fn []
-      [:<>
-       [:div {:id terminal-id :class "w-screen h-screen fixed top-0 left-0 bg-black"}]
-       ])}))
+    {:component-did-mount
+     (fn []
+       (let [term      (xterm/Terminal. #js {:cursorBlink  true
+                                             :disableStdin false})]
+         (.open term (js/document.getElementById terminal-id))
+         (set! (.-onresize js/window) (fn [_e]
+                                        (when-let [term (:term @state)]
+                                          (resize {:Cols (.-cols term)
+                                                   :Rows (.-rows term)}))))
+         (swap! state assoc :term term)
+         (connect)))
+     :reagent-render
+     (fn []
+       [:<>
+        [:div {:id terminal-id :class "w-screen h-screen fixed top-0 left-0 bg-black"}]])}))

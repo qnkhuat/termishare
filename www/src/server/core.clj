@@ -10,22 +10,13 @@
 
 (def frontend-root "target/classes/public/termishare/")
 
-(defn this-jar
-  "utility function to get the name of jar in which this function is invoked"
-  [ns]
-  ;; The .toURI step is vital to avoid problems with special characters,
-  ;; including spaces and pluses.
-  ;; Source: https://stackoverflow.com/q/320542/7012#comment18478290_320595
-  (-> (or ns (class *ns*))
-      .getProtectionDomain .getCodeSource .getLocation .toURI .getPath))
-
 ;; map of set of connections
 (defonce connections (atom {}))
 
 (defn ws-handler
   [roomID]
   {:on-connect (fn [ws]
-                 (println (format "New connection at room %s (%d)" roomID (count (roomID @connections))))
+                 (println (format "New connection at room: %s (%d)" (name roomID) (count (roomID @connections))))
                  (swap! connections update roomID #(if (some? %)
                                                      (conj % ws)
                                                      #{ws})))
@@ -51,7 +42,6 @@
        (fn [_req]
          (file-response "index.html" {:root frontend-root}))))
 
-
 (def app
   (-> #'routes
       wrap-keyword-params
@@ -62,5 +52,4 @@
 (defn -main [& _args]
   (let [port (Integer/parseInt (or (System/getenv "TERMISHARE_PORT") "3000"))]
     (println "Serving at localhost:" port)
-    (println "This jar: " (this-jar server.core))
     (run-jetty app {:port port})))
