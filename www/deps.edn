@@ -1,0 +1,23 @@
+{:paths ["src" "resources"]
+
+ :deps
+ {org.clojure/clojure {:mvn/version "1.10.1"}
+  ring/ring-core {:mvn/version "1.9.4"}
+  ring-logger/ring-logger {:mvn/version "1.0.1"}
+  info.sunng/ring-jetty9-adapter {:mvn/version "0.17.1"}
+  compojure/compojure {:mvn/version "1.6.2"}}
+
+ :aliases
+ {:dev
+  {:extra-paths ["dev/src"]
+   :extra-deps {ring/ring-devel {:mvn/version "1.9.4"}}}
+
+  ; clj -M:run
+  :run
+  {:main-opts ["-m" "server.core"]}
+
+  ; clj -T:build uber
+  :build
+  {:deps {io.github.clojure/tools.build {:git/tag "v0.6.2" :git/sha "226fb52"}}
+   :ns-default build}
+  }}

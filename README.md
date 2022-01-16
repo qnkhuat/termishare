@@ -25,6 +25,8 @@ If you want to ensure your terminal is not connected to an unknown server, you c
 - Creates your own TURN server connect to it by changing in [cfg/termishare.go](cli/internal/cfg/server.go)
 
 ## Upcoming
-- [ ] Connect to termishare session via `termishare` itself, instead of web-client
+- [x] Move both the front-end and server to server as one
+- [x] Connect to termishare session via `termishare` itself, instead of web-client
 - [ ] Install via brew/apt
 - [ ] Approval mechanism
+

@@ -1,7 +1,6 @@
 (ns termishare.pages.index
   (:require [termishare.components.mui :refer [GitHubIcon TextField Button]]
-            [termishare.route :refer [redirect!]]
-            [termishare.env :refer [TERMISHARE_DOMAIN]]
+            [termishare.route :as route]
             [lambdaisland.uri :refer [uri]]
             [reagent.core :as r]))
 
@@ -10,8 +9,9 @@
 (defn redirect-url
   [session-id]
   (str (assoc (uri "")
-              :scheme (:scheme (uri TERMISHARE_DOMAIN))
-              :host   (:host (uri TERMISHARE_DOMAIN))
+              :scheme (:scheme (uri route/current-host))
+              :host   (:host (uri route/current-host))
+              :port   (:port (uri route/current-host))
               :path   (str "/" session-id))))
 
 (defn index
@@ -25,7 +25,7 @@
                  :onChange (fn [e] (reset! session-input (.. e -target -value)))}]
      [Button {:className "border-2 border-lime-500 bg-lime-500 text-white font-bold"
               :on-click (fn [_e]
-                          (redirect! (redirect-url @session-input)))} "Join"]]
+                          (route/redirect! (redirect-url @session-input)))} "Join"]]
     [:a {:class "text-white text-center font-bold text-lg sm:text-xl mb-24"
          :href "https://github.com/qnkhuat/termishare"}
      [GitHubIcon {:className "animate-pulse hover:animate-bounce" :fontSize "large"}]]]])

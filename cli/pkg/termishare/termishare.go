@@ -6,9 +6,7 @@ import (
 	"fmt"
 	"io"
 	"log"
-	"net/url"
 	"os"
-	"strings"
 	"sync"
 	"time"
 
@@ -51,32 +49,28 @@ func New() *Termishare {
 	}
 }
 
-func (ts *Termishare) Start(server string, client string, noTurn bool) error {
+func (ts *Termishare) Start(server string, noTurn bool) error {
 	ts.noTurn = noTurn
 
 	// Create a pty to fake the terminal session
-	roomID := uuid.NewString()
-	log.Printf("New session : %s", roomID)
-	envVars := []string{fmt.Sprintf("%s=%s", cfg.TERMISHARE_ENVKEY_SESSIONID, roomID)}
-	ts.pty.StartShell(envVars)
-	fmt.Printf("Press Enter to continue!\n")
+	sessionID := uuid.NewString()
+	log.Printf("New session : %s", sessionID)
+	envVars := []string{fmt.Sprintf("%s=%s", cfg.TERMISHARE_ENVKEY_SESSIONID, sessionID)}
+	ts.pty.StartDefaultShell(envVars)
+	fmt.Printf("Press Enter to continue!\r\n")
 	bufio.NewReader(os.Stdin).ReadString('\n')
 
-	fmt.Printf("Sharing at: %s\n", GetClientURL(client, roomID))
+	fmt.Printf("Sharing at: %s\n", GetClientURL(server, sessionID))
+	fmt.Println("Type 'exit' or press 'Ctrl-D' to exit")
 	ts.pty.MakeRaw()
 	defer ts.Stop("Bye!")
 
-	// Initiate websocket connection for signaling
-	scheme := "ws"
-	if strings.HasPrefix(server, "https://") {
-		scheme = "wss"
-	}
-	host := strings.Replace(strings.Replace(server, "http://", "", 1), "https://", "", 1)
-	url := url.URL{Scheme: scheme, Host: host, Path: fmt.Sprintf("/ws/%s", roomID)}
-	log.Printf("Connecting to: %s", url.String())
-	wsConn, err := NewWebSocketConnection(url.String())
+	wsURL := GetWSURL(server, sessionID)
+	log.Printf("Connecting to: %s", wsURL)
+	wsConn, err := NewWebSocketConnection(wsURL)
 	if err != nil {
-		ts.Stop("Failed to connect to websocket server")
+		log.Printf("Failed to connect to signaling server: %s", err)
+		ts.Stop("Failed to connect to signaling server")
 		return err
 	}
 
@@ -145,13 +139,20 @@ func (ts *Termishare) Stop(msg string) {
 	if ts.wsConn != nil {
 		ts.wsConn.WriteControl(websocket.CloseMessage, []byte{}, time.Time{})
 		ts.wsConn.Close()
+		ts.wsConn = nil
+	}
+
+	for _, client := range ts.clients {
+		client.conn.Close()
 	}
 
 	if ts.pty != nil {
 		ts.pty.Stop()
 		ts.pty.Restore()
+		ts.pty = nil
 	}
 
+	log.Printf("Stop: %s", msg)
 	fmt.Println(msg)
 }
 
@@ -168,7 +169,6 @@ func (ts *Termishare) startHandleWsMessages() error {
 			log.Printf("Failed to read websocket message")
 			return fmt.Errorf("Failed to read message from websocket")
 		}
-		log.Printf("Got a message: %v", msg)
 
 		// skip messages that are not send to the host
 		if msg.To != cfg.TERMISHARE_WEBSOCKET_HOST_ID {
@@ -179,14 +179,13 @@ func (ts *Termishare) startHandleWsMessages() error {
 		err := ts.handleWebSocketMessage(msg)
 		if err != nil {
 			log.Printf("Failed to handle message: %v, with error: %s", msg, err)
-			return err
+			continue
 		}
 	}
 }
 
 func (ts *Termishare) handleWebSocketMessage(msg message.Wrapper) error {
 
-	log.Printf("Got message: %v", msg)
 	switch msgType := msg.Type; msgType {
 	// offer
 	case message.TRTCWillYouMarryMe:
@@ -200,6 +199,7 @@ func (ts *Termishare) handleWebSocketMessage(msg message.Wrapper) error {
 		if err := json.Unmarshal([]byte(msg.Data.(string)), &offer); err != nil {
 			return err
 		}
+		log.Printf("Get an offer: %v", (string(msg.Data.(string))))
 
 		if err := client.conn.SetRemoteDescription(offer); err != nil {
 			return fmt.Errorf("Failed to set remote description: %s", err)
@@ -370,12 +370,28 @@ func (ts *Termishare) newClient(ID string) (*Client, error) {
 				ts.pty.Refresh()
 
 			case cfg.TERMISHARE_WEBRTC_CONFIG_CHANNEL:
-				d.OnMessage(func(msg webrtc.DataChannelMessage) {
-					log.Printf("config channel got message: %v", msg)
+				d.OnMessage(func(webrtcMsg webrtc.DataChannelMessage) {
+
+					msg := &message.Wrapper{}
+					err := json.Unmarshal(webrtcMsg.Data, msg)
+					if err != nil {
+						log.Printf("Failed to read config message: %s", err)
+						return
+					}
+
+					log.Printf("Config channel got msg: %v", msg)
+					switch msg.Type {
+					case message.TTermRefresh:
+						ts.pty.Refresh()
+
+					default:
+						log.Printf("Unhandled msg config type: %s", msg.Type)
+					}
+
 				})
 				ts.clients[ID].configChannel = d
 
-				// send config at sync
+				// send config at first to sync
 				ws, _ := pty.GetWinsize(0)
 				msg := message.Wrapper{
 					Type: message.TTermWinsize,

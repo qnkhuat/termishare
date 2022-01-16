@@ -9,12 +9,10 @@
   [clj-commons/secretary "1.2.4"]
   [funcool/bide "1.7.0"]]
 
- :dev-http {8000 "public"}
- :builds
+  :builds
  {:app
   {:target           :browser
    :modules          {:main {:init-fn termishare.main/init}}
-   :closure-defines  {termishare.env/TERMISHARE_SERVER_URL #shadow/env ["TERMISHARE_SERVER_URL" :default "http://localhost:3000"]
-                      termishare.env/TERMISHARE_DOMAIN #shadow/env ["TERMISHARE_DOMAIN" :default "http://localhost:8000"]}
+   :output-dir       "resources/frontend/static"
    :compiler-options {:infer-externs      :auto
                       :output-feature-set :es6}}}}
