@@ -3,10 +3,8 @@ name: uberjar
 on:
   pull_request:
   push:
-    tags:
-      - 'v*'
-    paths-ignore:
-      - 'cli/**'
+    branches:
+      - '**'
 
 jobs:
   uberjar:
