@@ -66,8 +66,6 @@
       (wrap-log-response {:log-fn log-fn})
       (wrap-resource frontend-root)))
 
-(re-find #"\*" "fdfsd")
-
 (defn -main [& _args]
   (let [host (or (System/getenv "TERMISHARE_HOST") "localhost")
         port (Integer/parseInt (or (System/getenv "TERMISHARE_PORT") "3000"))]
