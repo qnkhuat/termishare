@@ -41,3 +41,14 @@ changelog:
     exclude:
       - '^docs:'
       - '^test:'
+
+brews:
+  - homepage: 'https://github.com/qnkhuat/termishare'
+    description: 'Peer to peer terminal sharing'
+    folder: Formula
+    commit_author:
+      name: Ngoc Khuat
+      email: qn.khuat@gmail.com
+    tap:
+      owner: qnkhuat
+      name: termishare
