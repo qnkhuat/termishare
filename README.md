@@ -9,14 +9,20 @@ In order to achieve that, termishare uses a combination of WebSocket and WebRTC:
 - WebSocket - is used only for signaling - which is a process to establish WebRTC connection
 - [WebRTC](https://webrtc.org) - the primary connection to stream your terminal to other clients
 
-## Getting started
+# Getting started
 
-### Install
+## Install
+### Via brew
+1. `brew tap qnkhuat/tap`
+2. `brew install termishare`
+
+### Via release
+
 1. Go to our [release](https://github.com/qnkhuat/termishare/releases) page and get a pre-built binary of `termishare`. Make sure you get the one that match your OS.
 2. Untar the package `tar -xzf termishare_x.y.z.tar.gz`
 3. (Optional) Move it to `/usr/local/bin` folder so that you could use `termishare` anywhere : `mv termishare /usr/local/bin`
 
-### Start sharing
+## Start sharing
 1. To start a session, just run `termisnare` (If you don't want to connect to our TURN server, add a flag `-no-turn`)
 2. If succeed, termishare will print out a connection url you can use to connect via:
     - browser
