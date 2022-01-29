@@ -53,3 +53,4 @@ brews:
     tap:
       owner: qnkhuat
       name: homebrew-tap
+      token: "{{ .Env.TAP_GITHUB_TOKEN }}"
