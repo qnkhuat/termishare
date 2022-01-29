@@ -28,6 +28,8 @@ archives:
       linux: Linux
       386: i386
       amd64: x86_64
+      windows: Windows
+      freebsd: FreeBSD
 
     name_template: "{{ .Binary }}_{{ .Version }}_{{ .Os }}_{{ .Arch }}"
 
