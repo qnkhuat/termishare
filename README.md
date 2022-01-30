@@ -45,6 +45,7 @@ Termishare server is a jar file, it contains both the signaling server and the U
 - [x] Move both the front-end and server to server as one
 - [x] Connect to termishare session via `termishare` itself, instead of web-client
 - [x] Install via brew/apt
+- [ ] Customize TURN server
 - [ ] Approval mechanism
 
 ## Similar projects
