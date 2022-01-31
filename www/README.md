@@ -13,6 +13,5 @@ Just run `clj -T:build uber`. It will automatically:
 - Build front-end
 - Compile back-end to uber jar
 
-
 # Run
 - TERMISHARE_PORT=3000 java -jar termishare.jar

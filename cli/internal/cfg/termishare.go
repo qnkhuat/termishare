@@ -11,6 +11,9 @@ const (
 	TERMISHARE_WEBRTC_DATA_CHANNEL   = "termishare"           // lable name of webrtc data channel to exchange byte data
 	TERMISHARE_WEBRTC_CONFIG_CHANNEL = "config"               // lable name of webrtc config channel to exchange config
 	TERMISHARE_WEBSOCKET_HOST_ID     = "host"                 // ID of message sent by the host
+
+	TERMISHARE_VERSION = "0.0.4"
+	SUPPORTED_VERSION  = "0.0.4" // the oldest termishare version of client that the host could support
 )
 
 var TERMISHARE_ICE_SERVER_STUNS = []webrtc.ICEServer{{URLs: []string{"stun:stun.l.google.com:19302", "stun:stun1.l.google.com:19302"}}}

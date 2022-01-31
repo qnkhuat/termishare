@@ -1,3 +1,8 @@
+;; It's intentional to make the server to be as dump as possible
+;; All it does it broadcast messages from one client to others,
+;; it doesn't know who is client, who is server.
+;; That why when sending message we need to explicitly
+;; say where message come from and who it is sent to
 (ns server.core
   (:require [ring.adapter.jetty9 :refer [run-jetty send!] :as jetty]
             [compojure.core :refer [defroutes GET]]
