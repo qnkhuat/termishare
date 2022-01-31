@@ -20,32 +20,33 @@ func main() {
 
 	// if termishare get an argument that are not a flag, use it as the client
 	if len(args) == 1 {
-		logging.Config("/tmp/termishare.log", "REMOTE CLIENT: ")
 		// use as a remote client
+		logging.Config("/tmp/termishare.log", "REMOTE CLIENT: ")
 
 		rc := termishare.NewRemoteClient()
-
-		re := regexp.MustCompile(`^((http|https):\/\/[^\s/]+)\/([^\s/]+)*`)
-		matches := re.FindSubmatch([]byte(args[0]))
+		// url with template http://server.com/sessionID
+		serverURLRe := regexp.MustCompile(`^((http|https):\/\/[^\s/]+)\/([^\s/]+)*`)
+		matches := serverURLRe.FindSubmatch([]byte(args[0]))
 		if len(matches) == 4 {
-			// url with template http://server.com/sessionID
 			rc.Connect(string(matches[1]), string(matches[3]))
 		} else if !strings.Contains(args[0], "/") {
-			// guessing we're passed with only sessionID
+			// Use default server with a sessionID
 			rc.Connect(*server, args[0])
+		} else {
+			fmt.Println("Failed to parse arguments")
 		}
 		return
 	} else {
-		logging.Config("/tmp/termishare.log", "TERMISHARE: ")
 		// use as a host
+		logging.Config("/tmp/termishare.log", "TERMISHARE: ")
 		sessionID := os.Getenv(cfg.TERMISHARE_ENVKEY_SESSIONID)
 
 		if sessionID != "" {
 			fmt.Printf("This terminal is already being shared at: %s\n", termishare.GetClientURL(*server, sessionID))
-		} else {
-			ts := termishare.New()
-			ts.Start(*server, *noTurn)
+			return
 		}
+		ts := termishare.New(*noTurn)
+		ts.Start(*server)
 		return
 	}
 }

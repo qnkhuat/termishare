@@ -1,6 +1,6 @@
 /*
 Wrapper around the pty
-Used to control (start, stop) and communicate with the terminal
+Used to control (start, stop) and communicate with the tty
 */
 
 // Most the code are taken from : https://github.com/elisescu/tty-share/blob/master/pty_master.go

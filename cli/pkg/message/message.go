@@ -7,6 +7,8 @@ import (
 type MType string
 
 const (
+	// TODO refactor to make these message type as part of message
+	// we probably only need RTC, Control, Connect types
 	TRTCOffer     MType = "Offer"
 	TRTCAnswer    MType = "Answer"
 	TRTCCandidate MType = "Candidate"
@@ -18,6 +20,18 @@ const (
 	TTermRefresh MType = "Refresh"
 
 	TWSPing MType = "Ping"
+
+	// Whether or not a connection require a passcode
+	// when connect, client will first send a connect message
+	// server response with whether or not client needs to provide a passcode
+	TCConnect         = "Connect"
+	TCRequirePasscode = "RequirePasscode"
+	TCNoPasscode      = "NoPasscode"
+	// message to wrap passcode
+	TCPasscode = "Passcode"
+	// connection's response
+	TCAuthenticated   = "Authenticated"
+	TCUnauthenticated = "Unauthenticated"
 )
 
 type Wrapper struct {

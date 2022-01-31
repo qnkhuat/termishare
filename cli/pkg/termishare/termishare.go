@@ -7,6 +7,7 @@ import (
 	"io"
 	"log"
 	"os"
+	"strings"
 	"sync"
 	"time"
 
@@ -27,6 +28,8 @@ type Client struct {
 	configChannel *webrtc.DataChannel
 
 	conn *webrtc.PeerConnection
+
+	authenticated bool
 }
 
 type Termishare struct {
@@ -40,25 +43,44 @@ type Termishare struct {
 
 	// config
 	noTurn bool
+
+	// if empty, session does not require passcode
+	passcode string
 }
 
-func New() *Termishare {
+func New(noTurn bool) *Termishare {
 	return &Termishare{
 		pty:     pty.New(),
 		clients: make(map[string]*Client),
+		noTurn:  noTurn,
 	}
 }
 
-func (ts *Termishare) Start(server string, noTurn bool) error {
-	ts.noTurn = noTurn
-
+func (ts *Termishare) Start(server string) error {
 	// Create a pty to fake the terminal session
 	sessionID := uuid.NewString()
 	log.Printf("New session : %s", sessionID)
 	envVars := []string{fmt.Sprintf("%s=%s", cfg.TERMISHARE_ENVKEY_SESSIONID, sessionID)}
 	ts.pty.StartDefaultShell(envVars)
-	fmt.Printf("Press Enter to continue!\r\n")
-	bufio.NewReader(os.Stdin).ReadString('\n')
+
+	// Set passcode
+	fmt.Printf("Set passcode (enter to disable passcode): ")
+	for {
+		passcode, _ := bufio.NewReader(os.Stdin).ReadString('\n')
+		passcode = strings.TrimSpace(passcode)
+		// enter to set no passcode
+		if len(passcode) == 0 {
+			break
+		}
+
+		err := ts.SetPasscode(passcode)
+		if err != nil {
+			fmt.Printf("%s\n", err)
+			fmt.Printf("Set passcode (enter to disable passcode): ")
+		} else {
+			break
+		}
+	}
 
 	fmt.Printf("Sharing at: %s\n", GetClientURL(server, sessionID))
 	fmt.Println("Type 'exit' or press 'Ctrl-D' to exit")
@@ -99,6 +121,15 @@ func (ts *Termishare) Start(server string, noTurn bool) error {
 		return nil
 	})
 
+	// require passcode
+	requirePasscodeMsg := message.Wrapper{
+		Type: message.TCRequirePasscode,
+	}
+	if !ts.isRequirePasscode() {
+		requirePasscodeMsg.Type = message.TCNoPasscode
+	}
+	ts.writeWebsocket(requirePasscodeMsg)
+
 	go ts.startHandleWsMessages()
 
 	// Send a winsize message when ever terminal change size
@@ -133,6 +164,15 @@ func (ts *Termishare) Start(server string, noTurn bool) error {
 
 	ts.pty.Wait() // Blocking until user exit
 	return nil
+}
+
+func (ts *Termishare) SetPasscode(passcode string) error {
+	if len(passcode) >= 6 {
+		ts.passcode = passcode
+		return nil
+	} else {
+		return fmt.Errorf("Passcode must be more than 6 characters")
+	}
 }
 
 func (ts *Termishare) Stop(msg string) {
@@ -185,14 +225,37 @@ func (ts *Termishare) startHandleWsMessages() error {
 }
 
 func (ts *Termishare) handleWebSocketMessage(msg message.Wrapper) error {
+	var client *Client
+	if msg.Type == message.TCConnect {
+		_, err := ts.newClient(msg.From)
+		log.Printf("New client with ID: %s", msg.From)
+		if err != nil {
+			return fmt.Errorf("Failed to create client: %s", err)
+		}
+
+		msg := message.Wrapper{
+			To: msg.From,
+		}
+		if ts.isRequirePasscode() {
+			msg.Type = message.TCRequirePasscode
+		} else {
+			msg.Type = message.TCNoPasscode
+		}
+
+		ts.writeWebsocket(msg)
+		return nil
+	}
+
+	client, ok := ts.clients[msg.From]
+	if !ok {
+		return fmt.Errorf("Client with ID: %s not found", msg.From)
+	}
 
 	switch msgType := msg.Type; msgType {
 	// offer
 	case message.TRTCOffer:
-		client, err := ts.newClient(msg.From)
-		log.Printf("New client with ID: %s", msg.From)
-		if err != nil {
-			return fmt.Errorf("Failed to create client: %s", err)
+		if ts.isRequirePasscode() && !client.authenticated {
+			return fmt.Errorf("Unauthenticated client")
 		}
 
 		offer := webrtc.SessionDescription{}
@@ -224,9 +287,8 @@ func (ts *Termishare) handleWebSocketMessage(msg message.Wrapper) error {
 		ts.writeWebsocket(payload)
 
 	case message.TRTCCandidate:
-		client, ok := ts.clients[msg.From]
-		if !ok {
-			return fmt.Errorf("Client with ID: %s not found", msg.From)
+		if ts.isRequirePasscode() && !client.authenticated {
+			return fmt.Errorf("Unauthenticated client")
 		}
 
 		candidate := webrtc.ICECandidateInit{}
@@ -238,10 +300,24 @@ func (ts *Termishare) handleWebSocketMessage(msg message.Wrapper) error {
 			return fmt.Errorf("Failed to add ice candidate: %s", err)
 		}
 
+	case message.TCPasscode:
+		passcode := msg.Data.(string)
+		resp := message.Wrapper{
+			To: msg.From,
+		}
+
+		if ts.isAuthenticated(passcode) {
+			client.authenticated = true
+			resp.Type = message.TCAuthenticated
+		} else {
+			resp.Type = message.TCUnauthenticated
+		}
+		ts.writeWebsocket(resp)
+
 	default:
 		return fmt.Errorf("Not implemented to handle message type: %s", msg.Type)
-
 	}
+
 	return nil
 }
 
@@ -329,7 +405,7 @@ func (ts *Termishare) newClient(ID string) (*Client, error) {
 		ICEServers: ICEServers,
 	}
 
-	client := &Client{}
+	client := &Client{authenticated: false}
 
 	ts.lock.Lock()
 	ts.clients[ID] = client
@@ -433,4 +509,12 @@ func (ts *Termishare) getClient(ID string) *Client {
 	ts.lock.RLock()
 	defer ts.lock.Unlock()
 	return ts.clients[ID]
+}
+
+func (ts *Termishare) isAuthenticated(passcode string) bool {
+	return passcode == ts.passcode
+}
+
+func (ts *Termishare) isRequirePasscode() bool {
+	return len(ts.passcode) > 0
 }
