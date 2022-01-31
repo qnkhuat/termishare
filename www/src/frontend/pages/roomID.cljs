@@ -11,6 +11,8 @@
            :peer-conn nil
            :term      nil}))
 
+(declare send-offer)
+
 ;; msg queue to stack messages when web-socket is not connected
 (defonce msg-queue (atom []))
 (defonce connection-id (str (random-uuid)))
@@ -75,6 +77,21 @@
              js/RTCIceCandidate.
              (.addIceCandidate (:peer-conn @state)))
 
+        const/TCNoPasscode
+        (send-offer)
+        const/TCAuthenticated
+        (send-offer)
+
+        const/TCUnauthenticated
+        (let [passcode (js/prompt "Passcode: ")]
+          (send-when-connected (:ws-conn @state) {:Type const/TCPasscode
+                                                  :Data passcode}))
+
+        const/TCRequirePasscode
+        (let [passcode (js/prompt "Passcode: ")]
+          (send-when-connected (:ws-conn @state) {:Type const/TCPasscode
+                                                  :Data passcode}))
+
         const/TWSPing
         nil ; just skip it
 
@@ -98,6 +115,8 @@
                               (doall (map (fn [msg] (websocket-send-msg msg))
                                           @msg-queue))
                               (reset! msg-queue [])))
+      (send-when-connected (:ws-conn @state)
+                           {:Type const/TCConnect})
       (set! (.-onmessage conn) websocket-onmessage)
       (set! (.-onclose conn) websocket-onclose)
       (set! (.-onerror conn) websocket-onclose)

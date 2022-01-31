@@ -183,7 +183,6 @@ func (rc *RemoteClient) Connect(server string, sessionID string) {
 			log.Printf("Skip message :%v", msg)
 		}
 
-		log.Printf("got a message: %v", msg)
 		err := rc.handleWebSocketMessage(msg)
 		if err != nil {
 			log.Printf("Failed to handle message: %v, with error: %s", msg, err)
@@ -270,6 +269,10 @@ func (rc *RemoteClient) sendOffer() {
 
 func (rc *RemoteClient) handleWebSocketMessage(msg message.Wrapper) error {
 	switch msgType := msg.Type; msgType {
+
+	case message.TCUnauthenticated:
+		fmt.Printf("Incorrect passcode!\n")
+		fallthrough
 	case message.TCRequirePasscode:
 		fmt.Printf("Passcode: ")
 		passcode, _ := bufio.NewReader(os.Stdin).ReadString('\n')
@@ -283,16 +286,6 @@ func (rc *RemoteClient) handleWebSocketMessage(msg message.Wrapper) error {
 	case message.TCNoPasscode, message.TCAuthenticated:
 		rc.connected = true
 		rc.sendOffer()
-
-	case message.TCUnauthenticated:
-		fmt.Printf("hncorrect passcode!\nPasscode: ")
-		passcode, _ := bufio.NewReader(os.Stdin).ReadString('\n')
-		passcode = strings.TrimSpace(passcode)
-		resp := message.Wrapper{
-			Type: message.TCPasscode,
-			Data: passcode,
-		}
-		rc.writeWebsocket(resp)
 
 	case message.TRTCOffer:
 		return fmt.Errorf("Remote client shouldn't receive Offer message")

@@ -59,7 +59,7 @@ func New(noTurn bool) *Termishare {
 func (ts *Termishare) Start(server string) error {
 	// Create a pty to fake the terminal session
 	sessionID := uuid.NewString()
-	log.Printf("New session : %s", sessionID)
+	log.Printf("New session: %s", sessionID)
 	envVars := []string{fmt.Sprintf("%s=%s", cfg.TERMISHARE_ENVKEY_SESSIONID, sessionID)}
 	ts.pty.StartDefaultShell(envVars)
 

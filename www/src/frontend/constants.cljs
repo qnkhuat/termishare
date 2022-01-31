@@ -7,8 +7,17 @@
 (defonce TRTCCandidate :Candidate) ;; Candidate
 (defonce TTermWinsize :Winsize) ;; Candidate
 
-(defonce TWSPing :Ping) ;; Candidate
+;; connect
+(defonce TCConnect         :Connect)
+(defonce TCRequirePasscode :RequirePasscode)
+(defonce TCNoPasscode      :NoPasscode)
+;; message to wrap passcode
+(defonce TCPasscode :Passcode)
+;; connection's response
+(defonce TCAuthenticated   :Authenticated)
+(defonce TCUnauthenticated :Unauthenticated)
 
+(defonce TWSPing :Ping) ;; Candidate
 
 ;; Termishare config
 (defonce TERMISHARE_WEBSOCKET_HOST_ID "host") ;; ID of message sent from the host
