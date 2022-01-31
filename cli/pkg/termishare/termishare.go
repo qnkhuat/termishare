@@ -188,7 +188,7 @@ func (ts *Termishare) handleWebSocketMessage(msg message.Wrapper) error {
 
 	switch msgType := msg.Type; msgType {
 	// offer
-	case message.TRTCWillYouMarryMe:
+	case message.TRTCOffer:
 		client, err := ts.newClient(msg.From)
 		log.Printf("New client with ID: %s", msg.From)
 		if err != nil {
@@ -217,13 +217,13 @@ func (ts *Termishare) handleWebSocketMessage(msg message.Wrapper) error {
 
 		answerByte, _ := json.Marshal(answer)
 		payload := message.Wrapper{
-			Type: message.TRTCYes,
+			Type: message.TRTCAnswer,
 			Data: string(answerByte),
 			To:   msg.From,
 		}
 		ts.writeWebsocket(payload)
 
-	case message.TRTCKiss:
+	case message.TRTCCandidate:
 		client, ok := ts.clients[msg.From]
 		if !ok {
 			return fmt.Errorf("Client with ID: %s not found", msg.From)
@@ -418,7 +418,7 @@ func (ts *Termishare) newClient(ID string) (*Client, error) {
 		}
 
 		msg := message.Wrapper{
-			Type: message.TRTCKiss,
+			Type: message.TRTCCandidate,
 			Data: string(candidate),
 			To:   ID,
 		}

@@ -162,7 +162,7 @@ func (rc *RemoteClient) Connect(server string, sessionID string) {
 		}
 
 		msg := message.Wrapper{
-			Type: message.TRTCKiss,
+			Type: message.TRTCCandidate,
 			Data: string(candidate),
 		}
 
@@ -184,7 +184,7 @@ func (rc *RemoteClient) Connect(server string, sessionID string) {
 
 	offerByte, _ := json.Marshal(offer)
 	payload := message.Wrapper{
-		Type: message.TRTCWillYouMarryMe,
+		Type: message.TRTCOffer,
 		Data: string(offerByte),
 	}
 
@@ -242,10 +242,10 @@ func (rc *RemoteClient) Connect(server string, sessionID string) {
 func (rc *RemoteClient) handleWebSocketMessage(msg message.Wrapper) error {
 	switch msgType := msg.Type; msgType {
 	// offer
-	case message.TRTCWillYouMarryMe:
-		return fmt.Errorf("Remote client shouldn't receive WillYouMarryMe message")
+	case message.TRTCOffer:
+		return fmt.Errorf("Remote client shouldn't receive Offer message")
 
-	case message.TRTCYes:
+	case message.TRTCAnswer:
 		answer := webrtc.SessionDescription{}
 		if err := json.Unmarshal([]byte(msg.Data.(string)), &answer); err != nil {
 			return err
@@ -253,7 +253,7 @@ func (rc *RemoteClient) handleWebSocketMessage(msg message.Wrapper) error {
 
 		rc.peerConn.SetRemoteDescription(answer)
 
-	case message.TRTCKiss:
+	case message.TRTCCandidate:
 		candidate := webrtc.ICECandidateInit{}
 		if err := json.Unmarshal([]byte(msg.Data.(string)), &candidate); err != nil {
 			return fmt.Errorf("Failed to unmarshall icecandidate: %s", err)

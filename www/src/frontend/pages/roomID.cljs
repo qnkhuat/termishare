@@ -64,13 +64,13 @@
 
       (condp = (keyword (.-Type msg))
 
-        const/TRTCWillYouMarryMe
+        const/TRTCOffer
         (js/console.log "We shouldn't received this question, we should be the one who asks that")
 
-        const/TRTCYes
+        const/TRTCAnswer
         (.setRemoteDescription (:peer-conn @state) (-> msg .-Data js/JSON.parse))
 
-        const/TRTCKiss
+        const/TRTCCandidate
         (->> (-> msg .-Data js/JSON.parse)
              js/RTCIceCandidate.
              (.addIceCandidate (:peer-conn @state)))
@@ -114,7 +114,7 @@
   [e]
   (when  (.-candidate e)
     (send-when-connected (:ws-conn @state)
-                         {:Type const/TRTCKiss
+                         {:Type const/TRTCCandidate
                           :Data (-> e .-candidate .toJSON js/JSON.stringify)})))
 
 (defn rtc-ondatachannel
@@ -172,7 +172,7 @@
       .createOffer
       (.then (fn [offer]
                (.setLocalDescription (:peer-conn @state) offer)
-               (send-when-connected (:ws-conn @state) {:Type const/TRTCWillYouMarryMe
+               (send-when-connected (:ws-conn @state) {:Type const/TRTCOffer
                                                        :Data (js/JSON.stringify offer)})))
       (.catch (fn [e]
                 (js/console.log "Failed to send offer " e)))))

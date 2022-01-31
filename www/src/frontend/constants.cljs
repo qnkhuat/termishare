@@ -2,9 +2,9 @@
 ;; Should reflect the constants in cli/pkg/message/message.go and cli/internal/cfg
 
 ;; message
-(defonce TRTCWillYouMarryMe :WillYouMarryMe) ;; Offer
-(defonce TRTCYes :Yes) ;; Answer
-(defonce TRTCKiss :Kiss) ;; Candidate
+(defonce TRTCOffer :Offer) ;; Offer
+(defonce TRTCAnswer :Answer) ;; Answer
+(defonce TRTCCandidate :Candidate) ;; Candidate
 (defonce TTermWinsize :Winsize) ;; Candidate
 
 (defonce TWSPing :Ping) ;; Candidate

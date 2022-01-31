@@ -7,9 +7,9 @@ import (
 type MType string
 
 const (
-	TRTCWillYouMarryMe MType = "WillYouMarryMe" // Offer
-	TRTCYes            MType = "Yes"            // Answer
-	TRTCKiss           MType = "Kiss"           // Candidate
+	TRTCOffer     MType = "Offer"
+	TRTCAnswer    MType = "Answer"
+	TRTCCandidate MType = "Candidate"
 
 	TTermWinsize MType = "Winsize" // Update winsize
 
