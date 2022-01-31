@@ -32,6 +32,8 @@ const (
 	// connection's response
 	TCAuthenticated   = "Authenticated"
 	TCUnauthenticated = "Unauthenticated"
+
+	TCUnsupportedVersion = "UnsupportedVersion"
 )
 
 type Wrapper struct {

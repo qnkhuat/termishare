@@ -227,6 +227,12 @@ func (ts *Termishare) startHandleWsMessages() error {
 func (ts *Termishare) handleWebSocketMessage(msg message.Wrapper) error {
 	var client *Client
 	if msg.Type == message.TCConnect {
+		clientVersion := msg.Data.(string)
+		// TODO: use relative comparision instead of ==
+		if clientVersion != cfg.SUPPORTED_VERSION {
+			ts.writeWebsocket(message.Wrapper{Type: message.TCUnsupportedVersion, Data: cfg.SUPPORTED_VERSION, To: msg.From})
+			return fmt.Errorf("Client is running unsupported version :%s", clientVersion)
+		}
 		_, err := ts.newClient(msg.From)
 		log.Printf("New client with ID: %s", msg.From)
 		if err != nil {

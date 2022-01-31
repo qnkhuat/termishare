@@ -16,6 +16,7 @@
 ;; connection's response
 (defonce TCAuthenticated   :Authenticated)
 (defonce TCUnauthenticated :Unauthenticated)
+(defonce TCUnsupportedVersion :UnsupportedVersion)
 
 (defonce TWSPing :Ping) ;; Candidate
 
@@ -23,3 +24,4 @@
 (defonce TERMISHARE_WEBSOCKET_HOST_ID "host") ;; ID of message sent from the host
 (defonce TERMISHARE_WEBRTC_DATA_CHANNEL "termishare") ;; lable name of webrtc data channel to exchange byte data
 (defonce TERMISHARE_WEBRTC_CONFIG_CHANNEL "config") ;; lable name of webrtc config channel to exchange config
+(defonce TERMISHARE_VERSION "0.0.4")

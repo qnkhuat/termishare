@@ -93,7 +93,9 @@ func (pty *Pty) Stop() error {
 }
 
 func (pty *Pty) Restore() {
-	term.Restore(0, pty.terminalInitState)
+	if pty.terminalInitState != nil {
+		term.Restore(0, pty.terminalInitState)
+	}
 }
 
 func (pty *Pty) Refresh() {

@@ -66,6 +66,9 @@
 
       (condp = (keyword (.-Type msg))
 
+        const/TCUnsupportedVersion
+        (js/alert (str "The host is running termishare version: " (.-Data msg) " and you're running " const/TERMISHARE_VERSION ". Please ask the host to upgrade version or try connect via termishare cli!"))
+
         const/TRTCOffer
         (js/console.log "We shouldn't received this question, we should be the one who asks that")
 
@@ -116,7 +119,8 @@
                                           @msg-queue))
                               (reset! msg-queue [])))
       (send-when-connected (:ws-conn @state)
-                           {:Type const/TCConnect})
+                           {:Type const/TCConnect
+                            :Data const/TERMISHARE_VERSION})
       (set! (.-onmessage conn) websocket-onmessage)
       (set! (.-onclose conn) websocket-onclose)
       (set! (.-onerror conn) websocket-onclose)

@@ -166,7 +166,9 @@ func (rc *RemoteClient) Connect(server string, sessionID string) {
 
 	// block until handleWebSocketMessage set rc.connected to true
 	rc.wsConn = wsConn
-	rc.writeWebsocket(message.Wrapper{Type: message.TCConnect})
+	rc.writeWebsocket(message.Wrapper{
+		Type: message.TCConnect,
+		Data: cfg.TERMISHARE_VERSION})
 	for {
 		if rc.connected {
 			break
@@ -269,6 +271,9 @@ func (rc *RemoteClient) sendOffer() {
 
 func (rc *RemoteClient) handleWebSocketMessage(msg message.Wrapper) error {
 	switch msgType := msg.Type; msgType {
+
+	case message.TCUnsupportedVersion:
+		rc.Stop(fmt.Sprintf("The host require termishare version: %s and you're running %s. Please upgrade it! (github.com/qnkhuat/termishare)", msg.Data, cfg.TERMISHARE_VERSION))
 
 	case message.TCUnauthenticated:
 		fmt.Printf("Incorrect passcode!\n")
