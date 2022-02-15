@@ -15,7 +15,7 @@
             [ring.logger :refer [wrap-log-request-start wrap-log-response]])
   (:gen-class))
 
-(def frontend-root "frontend") ;; relative to target/classes/ during prod, or resources during development
+(def frontend-root "frontend") ;; relative to target/classes/ on prod, or resources in development
 
 (def log-fn (fn [{:keys [level throwable message]}]
               (println level throwable message)))
@@ -26,7 +26,6 @@
 (defn ws-handler
   [roomID]
   {:on-connect (fn [ws]
-                 (println (format "New connection at room: %s (%d)" (name roomID) (count (roomID @connections))))
                  (swap! connections update roomID #(if (nil? %)
                                                      #{ws}
                                                      (conj % ws))))
@@ -48,7 +47,6 @@
 
   (GET "/ws/:id" []
        (fn [{:keys [params] :as req}]
-         (println "got a reququest: " req)
          (when (jetty/ws-upgrade-request? req)
            (jetty/ws-upgrade-response (ws-handler (keyword (:id params)))))))
 
