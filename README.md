@@ -32,7 +32,7 @@ There are chances where a direct peer-to-peer connection can't be established, s
 
 If relay to the TURN server is something you don't want, you can:
 - Disable the usage of turn server (with `-no-turn` flag)
-- Creates your own TURN server connect to it by changing in [cfg/termishare.go](cli/internal/cfg/server.go) then re-compile termishare (sorry)
+- Creates your own TURN server connect to it by changing in [cfg/termishare.go](cli/internal/cfg/termishare.go) then re-compile termishare (sorry)
 
 ## Self-hosted
 Termishare server is a jar file, it contains both the signaling server and the UI, so it's fairlly simple to self-host termishare:
