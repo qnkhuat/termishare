@@ -25,7 +25,7 @@ In order to achieve that, termishare uses a combination of WebSocket and WebRTC:
 1. To start a sharing session, just run `termisnare`
 2. Termishare will echo out a connection url you can use to connect via:
     - browser
-    - terminal: `termishare {{connection_url}}`
+    - terminal with command :`termishare {{connection_url}}`
 
 ### Note
 There are chances where a direct peer-to-peer connection can't be established, so I included a TURN server that I created using [CoTURN](https://github.com/coturn/coturn).
