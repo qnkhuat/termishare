@@ -22,8 +22,8 @@ In order to achieve that, termishare uses a combination of WebSocket and WebRTC:
 3. (Optional) Move it to `/usr/local/bin` folder so that you could use `termishare` anywhere : `mv termishare /usr/local/bin`
 
 ## Usage
-1. To start a sharing session, just run `termisnare` (If you don't want to connect to our TURN server, add a flag `-no-turn`)
-2. If succeed, termishare will print out a connection url you can use to connect via:
+1. To start a sharing session, just run `termisnare`
+2. Termishare will echo out a connection url you can use to connect via:
     - browser
     - terminal: `termishare {{connection_url}}`
 
