@@ -38,8 +38,8 @@ If relay to the TURN server is something you don't want, you can:
 Termishare server is a jar file, it contains both the signaling server and the UI, so it's fairlly simple to self-host termishare:
 1. Install java
 2. Download `termishare.jar` from our [release](https://github.com/qnkhuat/termishare/releases) page
-3. Start it with `java -jar termishare.jar`
-4. Now you can connect to your server using termishare with `termishare -server {{sever_address}}`
+3. Start it with `java -jar termishare.jar`, by default it'll start at `localhost:3000`. You can use `TERMISHARE_HOST` and `TERMISHARE_PORT` env to change the default values.
+4. Now you can connect to your server using termishare with `termishare -server localhost:3000`
 
 ## Upcoming
 - [x] Move both the front-end and server to server as one
